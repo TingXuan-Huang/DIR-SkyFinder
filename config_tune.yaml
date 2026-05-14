@@ -1,0 +1,278 @@
+project_root: "."
+
+paths:
+  labels: "data/labels_with_images.csv"
+  splits: "data/splits/loco_5fold.json"
+  images: "data/images"
+  results: "results"
+
+save: true
+skip_existing: true
+
+# All ablations run on fold 0 only, ResNet-50, 30 epochs.
+# Each experiment varies ONE field from the default LDS or FDS config.
+# Default values (σ=2, sqrt_inv, bin_width=1, momentum=0.9, start_smooth=1)
+# are included so each sweep is self-contained for plotting.
+
+experiments:
+  # ===== A1: LDS kernel sigma sweep (5 runs) =====
+  - name: "tune_lds_sigma_0.5"
+    model: "resnet50"
+    folds: [0]
+    epochs: 30
+    batch_size: 64
+    lr: 0.001
+    num_workers: 4
+    seed: 0
+    use_lds: true
+    lds_kernel: "gaussian"
+    lds_ks: 5
+    lds_sigma: 0.5
+    lds_reweight: "sqrt_inv"
+    run_name_template: "tune_lds_sigma_0.5_fold{fold}"
+
+  - name: "tune_lds_sigma_1"
+    model: "resnet50"
+    folds: [0]
+    epochs: 30
+    batch_size: 64
+    lr: 0.001
+    num_workers: 4
+    seed: 0
+    use_lds: true
+    lds_sigma: 1.0
+    lds_reweight: "sqrt_inv"
+    run_name_template: "tune_lds_sigma_1_fold{fold}"
+
+  - name: "tune_lds_sigma_2"
+    model: "resnet50"
+    folds: [0]
+    epochs: 30
+    batch_size: 64
+    lr: 0.001
+    num_workers: 4
+    seed: 0
+    use_lds: true
+    lds_sigma: 2.0
+    lds_reweight: "sqrt_inv"
+    run_name_template: "tune_lds_sigma_2_fold{fold}"
+
+  - name: "tune_lds_sigma_5"
+    model: "resnet50"
+    folds: [0]
+    epochs: 30
+    batch_size: 64
+    lr: 0.001
+    num_workers: 4
+    seed: 0
+    use_lds: true
+    lds_sigma: 5.0
+    lds_reweight: "sqrt_inv"
+    run_name_template: "tune_lds_sigma_5_fold{fold}"
+
+  - name: "tune_lds_sigma_10"
+    model: "resnet50"
+    folds: [0]
+    epochs: 30
+    batch_size: 64
+    lr: 0.001
+    num_workers: 4
+    seed: 0
+    use_lds: true
+    lds_sigma: 10.0
+    lds_reweight: "sqrt_inv"
+    run_name_template: "tune_lds_sigma_10_fold{fold}"
+
+  # ===== A2: LDS reweight scheme (3 runs) =====
+  # "none" with use_lds:true is equivalent to vanilla L1 (weights all 1.0).
+  - name: "tune_lds_reweight_none"
+    model: "resnet50"
+    folds: [0]
+    epochs: 30
+    batch_size: 64
+    lr: 0.001
+    num_workers: 4
+    seed: 0
+    use_lds: true
+    lds_sigma: 2.0
+    lds_reweight: "none"
+    run_name_template: "tune_lds_reweight_none_fold{fold}"
+
+  - name: "tune_lds_reweight_sqrt_inv"
+    model: "resnet50"
+    folds: [0]
+    epochs: 30
+    batch_size: 64
+    lr: 0.001
+    num_workers: 4
+    seed: 0
+    use_lds: true
+    lds_sigma: 2.0
+    lds_reweight: "sqrt_inv"
+    run_name_template: "tune_lds_reweight_sqrt_inv_fold{fold}"
+
+  - name: "tune_lds_reweight_inverse"
+    model: "resnet50"
+    folds: [0]
+    epochs: 30
+    batch_size: 64
+    lr: 0.001
+    num_workers: 4
+    seed: 0
+    use_lds: true
+    lds_sigma: 2.0
+    lds_reweight: "inverse"
+    run_name_template: "tune_lds_reweight_inverse_fold{fold}"
+
+  # ===== A3: Bucket width sweep (4 runs, LDS-only) =====
+  - name: "tune_bucket_0.5"
+    model: "resnet50"
+    folds: [0]
+    epochs: 30
+    batch_size: 64
+    lr: 0.001
+    num_workers: 4
+    seed: 0
+    use_lds: true
+    lds_sigma: 2.0
+    lds_reweight: "sqrt_inv"
+    bin_width: 0.5
+    run_name_template: "tune_bucket_0.5_fold{fold}"
+
+  - name: "tune_bucket_1"
+    model: "resnet50"
+    folds: [0]
+    epochs: 30
+    batch_size: 64
+    lr: 0.001
+    num_workers: 4
+    seed: 0
+    use_lds: true
+    lds_sigma: 2.0
+    lds_reweight: "sqrt_inv"
+    bin_width: 1.0
+    run_name_template: "tune_bucket_1_fold{fold}"
+
+  - name: "tune_bucket_2"
+    model: "resnet50"
+    folds: [0]
+    epochs: 30
+    batch_size: 64
+    lr: 0.001
+    num_workers: 4
+    seed: 0
+    use_lds: true
+    lds_sigma: 2.0
+    lds_reweight: "sqrt_inv"
+    bin_width: 2.0
+    run_name_template: "tune_bucket_2_fold{fold}"
+
+  - name: "tune_bucket_5"
+    model: "resnet50"
+    folds: [0]
+    epochs: 30
+    batch_size: 64
+    lr: 0.001
+    num_workers: 4
+    seed: 0
+    use_lds: true
+    lds_sigma: 2.0
+    lds_reweight: "sqrt_inv"
+    bin_width: 5.0
+    run_name_template: "tune_bucket_5_fold{fold}"
+
+  # ===== A4: FDS momentum (3 runs) =====
+  - name: "tune_fds_momentum_0.5"
+    model: "resnet50"
+    folds: [0]
+    epochs: 30
+    batch_size: 64
+    lr: 0.001
+    num_workers: 4
+    seed: 0
+    use_fds: true
+    fds_kernel: "gaussian"
+    fds_ks: 5
+    fds_sigma: 2.0
+    fds_momentum: 0.5
+    fds_start_smooth: 1
+    run_name_template: "tune_fds_momentum_0.5_fold{fold}"
+
+  - name: "tune_fds_momentum_0.9"
+    model: "resnet50"
+    folds: [0]
+    epochs: 30
+    batch_size: 64
+    lr: 0.001
+    num_workers: 4
+    seed: 0
+    use_fds: true
+    fds_momentum: 0.9
+    fds_start_smooth: 1
+    run_name_template: "tune_fds_momentum_0.9_fold{fold}"
+
+  - name: "tune_fds_momentum_0.99"
+    model: "resnet50"
+    folds: [0]
+    epochs: 30
+    batch_size: 64
+    lr: 0.001
+    num_workers: 4
+    seed: 0
+    use_fds: true
+    fds_momentum: 0.99
+    fds_start_smooth: 1
+    run_name_template: "tune_fds_momentum_0.99_fold{fold}"
+
+  # ===== A5: FDS start_smooth (4 runs) =====
+  - name: "tune_fds_start_smooth_0"
+    model: "resnet50"
+    folds: [0]
+    epochs: 30
+    batch_size: 64
+    lr: 0.001
+    num_workers: 4
+    seed: 0
+    use_fds: true
+    fds_momentum: 0.9
+    fds_start_smooth: 0
+    run_name_template: "tune_fds_start_smooth_0_fold{fold}"
+
+  - name: "tune_fds_start_smooth_1"
+    model: "resnet50"
+    folds: [0]
+    epochs: 30
+    batch_size: 64
+    lr: 0.001
+    num_workers: 4
+    seed: 0
+    use_fds: true
+    fds_momentum: 0.9
+    fds_start_smooth: 1
+    run_name_template: "tune_fds_start_smooth_1_fold{fold}"
+
+  - name: "tune_fds_start_smooth_3"
+    model: "resnet50"
+    folds: [0]
+    epochs: 30
+    batch_size: 64
+    lr: 0.001
+    num_workers: 4
+    seed: 0
+    use_fds: true
+    fds_momentum: 0.9
+    fds_start_smooth: 3
+    run_name_template: "tune_fds_start_smooth_3_fold{fold}"
+
+  - name: "tune_fds_start_smooth_5"
+    model: "resnet50"
+    folds: [0]
+    epochs: 30
+    batch_size: 64
+    lr: 0.001
+    num_workers: 4
+    seed: 0
+    use_fds: true
+    fds_momentum: 0.9
+    fds_start_smooth: 5
+    run_name_template: "tune_fds_start_smooth_5_fold{fold}"

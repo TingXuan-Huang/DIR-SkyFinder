@@ -1,0 +1,129 @@
+project_root: "."
+
+paths:
+  labels: "data/labels_with_images.csv"
+  splits: "data/splits/loco_5fold.json"
+  images: "data/images"
+  results: "results"
+
+save: true
+skip_existing: true
+
+smoke_test:
+  enabled: true
+  model: "resnet50"
+  fold: 0
+  epochs: 1
+  batch_size: 64
+  lr: 0.001
+  num_workers: 4
+  train_subset: 2000
+  val_subset: 500
+  seed: 0
+  run_name: "smoke_hyak"
+
+experiments:
+  # --- ResNet-50: 4 configs (vanilla / +LDS / +FDS / +LDS+FDS) ---
+  - name: "baseline_resnet50"
+    model: "resnet50"
+    folds: [0, 1, 2, 3, 4]
+    epochs: 30
+    batch_size: 64
+    lr: 0.001
+    num_workers: 4
+    seed: 0
+    run_name_template: "baseline_resnet50_fold{fold}"
+
+  - name: "lds_resnet50"
+    model: "resnet50"
+    folds: [0, 1, 2, 3, 4]
+    epochs: 30
+    batch_size: 64
+    lr: 0.001
+    num_workers: 4
+    seed: 0
+    use_lds: true
+    lds_kernel: "gaussian"
+    lds_ks: 5
+    lds_sigma: 2.0
+    lds_reweight: "sqrt_inv"
+    run_name_template: "lds_resnet50_fold{fold}"
+
+  - name: "fds_resnet50"
+    model: "resnet50"
+    folds: [0, 1, 2, 3, 4]
+    epochs: 30
+    batch_size: 64
+    lr: 0.001
+    num_workers: 4
+    seed: 0
+    use_fds: true
+    fds_kernel: "gaussian"
+    fds_ks: 5
+    fds_sigma: 2.0
+    fds_momentum: 0.9
+    fds_start_smooth: 1
+    run_name_template: "fds_resnet50_fold{fold}"
+
+  - name: "lds_fds_resnet50"
+    model: "resnet50"
+    folds: [0, 1, 2, 3, 4]
+    epochs: 30
+    batch_size: 64
+    lr: 0.001
+    num_workers: 4
+    seed: 0
+    use_lds: true
+    lds_reweight: "sqrt_inv"
+    use_fds: true
+    fds_start_smooth: 1
+    run_name_template: "lds_fds_resnet50_fold{fold}"
+
+  # --- ViT-B/16: 4 configs ---
+  - name: "baseline_vit"
+    model: "vit_b_16"
+    folds: [0, 1, 2, 3, 4]
+    epochs: 30
+    batch_size: 64
+    lr: 0.001
+    num_workers: 4
+    seed: 0
+    run_name_template: "baseline_vit_fold{fold}"
+
+  - name: "lds_vit"
+    model: "vit_b_16"
+    folds: [0, 1, 2, 3, 4]
+    epochs: 30
+    batch_size: 64
+    lr: 0.001
+    num_workers: 4
+    seed: 0
+    use_lds: true
+    lds_reweight: "sqrt_inv"
+    run_name_template: "lds_vit_fold{fold}"
+
+  - name: "fds_vit"
+    model: "vit_b_16"
+    folds: [0, 1, 2, 3, 4]
+    epochs: 30
+    batch_size: 64
+    lr: 0.001
+    num_workers: 4
+    seed: 0
+    use_fds: true
+    fds_start_smooth: 1
+    run_name_template: "fds_vit_fold{fold}"
+
+  - name: "lds_fds_vit"
+    model: "vit_b_16"
+    folds: [0, 1, 2, 3, 4]
+    epochs: 30
+    batch_size: 64
+    lr: 0.001
+    num_workers: 4
+    seed: 0
+    use_lds: true
+    lds_reweight: "sqrt_inv"
+    use_fds: true
+    fds_start_smooth: 1
+    run_name_template: "lds_fds_vit_fold{fold}"

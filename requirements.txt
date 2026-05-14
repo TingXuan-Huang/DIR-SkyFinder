@@ -1,0 +1,12 @@
+torch==2.3.0
+torchvision==0.18.0
+numpy==1.26.4
+pandas==2.1.4
+matplotlib==3.8.2
+pyarrow==14.0.2
+pillow==10.1.0
+tqdm==4.66.1
+PyYAML==6.0.1
+scipy==1.11.4    # required by lds.py and fds.py (Gaussian / Laplace kernel windows)
+scikit-learn==1.4.2   # ablation.py (C2 HistGBR), analysis/c1.py + figures.py (k-NN, PCA)
+umap-learn==0.5.5     # analysis/figures.py UMAP embedding plots (optional; PCA path is fallback)

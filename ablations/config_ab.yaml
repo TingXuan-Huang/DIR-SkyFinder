@@ -1,0 +1,634 @@
+project_root: "."
+
+paths:
+  labels: "data/labels_with_images.csv"
+  splits: "data/splits/loco_5fold.json"
+  images: "data/images"
+  results: "ablations/results"
+
+save: true
+skip_existing: true
+
+# Ablation sweep — drives D4, E1, F1, F2, F3, F5 (35 runs).
+# C2 is CPU-only and not in this file; run with:
+#     python -m ablations.ablation c2
+#
+# All experiments below run on ResNet-50, fold 0, 30 epochs. Per-experiment
+# fields that match Config defaults are omitted for compactness.
+
+experiments:
+  # =====================================================================
+  # D4. Linear probe (backbone frozen, only the regression head trains).
+  # 2 runs: baseline vs +LDS+FDS. Reference (unfrozen) runs already exist
+  # in results/baseline_resnet50_fold0 and results/lds_fds_resnet50_fold0.
+  # =====================================================================
+  - name: "d4_linprobe_resnet"
+    model: "resnet50"
+    folds: [0]
+    epochs: 30
+    batch_size: 64
+    lr: 0.001
+    num_workers: 4
+    seed: 0
+    freeze_backbone: true
+    run_name_template: "d4_linprobe_resnet_fold{fold}"
+
+  - name: "d4_linprobe_resnet_lds_fds"
+    model: "resnet50"
+    folds: [0]
+    epochs: 30
+    batch_size: 64
+    lr: 0.001
+    num_workers: 4
+    seed: 0
+    freeze_backbone: true
+    use_lds: true
+    lds_reweight: "sqrt_inv"
+    use_fds: true
+    fds_start_smooth: 1
+    run_name_template: "d4_linprobe_resnet_lds_fds_fold{fold}"
+
+  # =====================================================================
+  # E1. Seed variance on the headline DIR config (LDS+FDS ResNet, fold 0).
+  # 3 seeds -> std on overall MAE and MAE-few.
+  # =====================================================================
+  - name: "e1_lds_fds_resnet_seed0"
+    model: "resnet50"
+    folds: [0]
+    epochs: 30
+    batch_size: 64
+    lr: 0.001
+    num_workers: 4
+    seed: 0
+    use_lds: true
+    lds_reweight: "sqrt_inv"
+    use_fds: true
+    fds_start_smooth: 1
+    run_name_template: "e1_lds_fds_resnet_seed0_fold{fold}"
+
+  - name: "e1_lds_fds_resnet_seed1"
+    model: "resnet50"
+    folds: [0]
+    epochs: 30
+    batch_size: 64
+    lr: 0.001
+    num_workers: 4
+    seed: 1
+    use_lds: true
+    lds_reweight: "sqrt_inv"
+    use_fds: true
+    fds_start_smooth: 1
+    run_name_template: "e1_lds_fds_resnet_seed1_fold{fold}"
+
+  - name: "e1_lds_fds_resnet_seed2"
+    model: "resnet50"
+    folds: [0]
+    epochs: 30
+    batch_size: 64
+    lr: 0.001
+    num_workers: 4
+    seed: 2
+    use_lds: true
+    lds_reweight: "sqrt_inv"
+    use_fds: true
+    fds_start_smooth: 1
+    run_name_template: "e1_lds_fds_resnet_seed2_fold{fold}"
+
+  # =====================================================================
+  # F1. Random training-label corruption + per-cam-month imputation.
+  # Rates {25%, 50%, 75%} x {baseline, LDS+FDS} = 6 runs.
+  # Reference (rate=0%) lives in results/baseline_resnet50_fold0 and
+  # results/lds_fds_resnet50_fold0.
+  # =====================================================================
+  - name: "f1_rate25_baseline"
+    model: "resnet50"
+    folds: [0]
+    epochs: 30
+    batch_size: 64
+    lr: 0.001
+    num_workers: 4
+    seed: 0
+    corruption:
+      mode: "random"
+      rate: 0.25
+      drop_mode: "impute"
+      imputer: "per_cam_month_mean"
+    run_name_template: "f1_rate25_baseline_fold{fold}"
+
+  - name: "f1_rate25_lds_fds"
+    model: "resnet50"
+    folds: [0]
+    epochs: 30
+    batch_size: 64
+    lr: 0.001
+    num_workers: 4
+    seed: 0
+    use_lds: true
+    lds_reweight: "sqrt_inv"
+    use_fds: true
+    fds_start_smooth: 1
+    corruption:
+      mode: "random"
+      rate: 0.25
+      drop_mode: "impute"
+      imputer: "per_cam_month_mean"
+    run_name_template: "f1_rate25_lds_fds_fold{fold}"
+
+  - name: "f1_rate50_baseline"
+    model: "resnet50"
+    folds: [0]
+    epochs: 30
+    batch_size: 64
+    lr: 0.001
+    num_workers: 4
+    seed: 0
+    corruption:
+      mode: "random"
+      rate: 0.50
+      drop_mode: "impute"
+      imputer: "per_cam_month_mean"
+    run_name_template: "f1_rate50_baseline_fold{fold}"
+
+  - name: "f1_rate50_lds_fds"
+    model: "resnet50"
+    folds: [0]
+    epochs: 30
+    batch_size: 64
+    lr: 0.001
+    num_workers: 4
+    seed: 0
+    use_lds: true
+    lds_reweight: "sqrt_inv"
+    use_fds: true
+    fds_start_smooth: 1
+    corruption:
+      mode: "random"
+      rate: 0.50
+      drop_mode: "impute"
+      imputer: "per_cam_month_mean"
+    run_name_template: "f1_rate50_lds_fds_fold{fold}"
+
+  - name: "f1_rate75_baseline"
+    model: "resnet50"
+    folds: [0]
+    epochs: 30
+    batch_size: 64
+    lr: 0.001
+    num_workers: 4
+    seed: 0
+    corruption:
+      mode: "random"
+      rate: 0.75
+      drop_mode: "impute"
+      imputer: "per_cam_month_mean"
+    run_name_template: "f1_rate75_baseline_fold{fold}"
+
+  - name: "f1_rate75_lds_fds"
+    model: "resnet50"
+    folds: [0]
+    epochs: 30
+    batch_size: 64
+    lr: 0.001
+    num_workers: 4
+    seed: 0
+    use_lds: true
+    lds_reweight: "sqrt_inv"
+    use_fds: true
+    fds_start_smooth: 1
+    corruption:
+      mode: "random"
+      rate: 0.75
+      drop_mode: "impute"
+      imputer: "per_cam_month_mean"
+    run_name_template: "f1_rate75_lds_fds_fold{fold}"
+
+  # =====================================================================
+  # F2. Range-targeted MNAR drop. Each pair runs the SAME range with two
+  # treatments: impute (fill from per-cam-month mean) and drop (remove rows).
+  # 3 ranges x {baseline, LDS+FDS} x {impute, drop} = 12 runs.
+  # LDS+FDS uses sigma=5 so the smoothing kernel can bridge a 5 C gap.
+  # =====================================================================
+  - name: "f2_range_5_10_impute_baseline"
+    model: "resnet50"
+    folds: [0]
+    epochs: 30
+    batch_size: 64
+    lr: 0.001
+    num_workers: 4
+    seed: 0
+    corruption:
+      mode: "range"
+      range: [5.0, 10.0]
+      drop_mode: "impute"
+      imputer: "per_cam_month_mean"
+    run_name_template: "f2_range_5_10_impute_baseline_fold{fold}"
+
+  - name: "f2_range_5_10_impute_lds_fds"
+    model: "resnet50"
+    folds: [0]
+    epochs: 30
+    batch_size: 64
+    lr: 0.001
+    num_workers: 4
+    seed: 0
+    use_lds: true
+    lds_sigma: 5.0
+    lds_reweight: "sqrt_inv"
+    use_fds: true
+    fds_sigma: 5.0
+    fds_start_smooth: 1
+    corruption:
+      mode: "range"
+      range: [5.0, 10.0]
+      drop_mode: "impute"
+      imputer: "per_cam_month_mean"
+    run_name_template: "f2_range_5_10_impute_lds_fds_fold{fold}"
+
+  - name: "f2_range_25_30_impute_baseline"
+    model: "resnet50"
+    folds: [0]
+    epochs: 30
+    batch_size: 64
+    lr: 0.001
+    num_workers: 4
+    seed: 0
+    corruption:
+      mode: "range"
+      range: [25.0, 30.0]
+      drop_mode: "impute"
+      imputer: "per_cam_month_mean"
+    run_name_template: "f2_range_25_30_impute_baseline_fold{fold}"
+
+  - name: "f2_range_25_30_impute_lds_fds"
+    model: "resnet50"
+    folds: [0]
+    epochs: 30
+    batch_size: 64
+    lr: 0.001
+    num_workers: 4
+    seed: 0
+    use_lds: true
+    lds_sigma: 5.0
+    lds_reweight: "sqrt_inv"
+    use_fds: true
+    fds_sigma: 5.0
+    fds_start_smooth: 1
+    corruption:
+      mode: "range"
+      range: [25.0, 30.0]
+      drop_mode: "impute"
+      imputer: "per_cam_month_mean"
+    run_name_template: "f2_range_25_30_impute_lds_fds_fold{fold}"
+
+  - name: "f2_range_40_45_impute_baseline"
+    model: "resnet50"
+    folds: [0]
+    epochs: 30
+    batch_size: 64
+    lr: 0.001
+    num_workers: 4
+    seed: 0
+    corruption:
+      mode: "range"
+      range: [40.0, 45.0]
+      drop_mode: "impute"
+      imputer: "per_cam_month_mean"
+    run_name_template: "f2_range_40_45_impute_baseline_fold{fold}"
+
+  - name: "f2_range_40_45_impute_lds_fds"
+    model: "resnet50"
+    folds: [0]
+    epochs: 30
+    batch_size: 64
+    lr: 0.001
+    num_workers: 4
+    seed: 0
+    use_lds: true
+    lds_sigma: 5.0
+    lds_reweight: "sqrt_inv"
+    use_fds: true
+    fds_sigma: 5.0
+    fds_start_smooth: 1
+    corruption:
+      mode: "range"
+      range: [40.0, 45.0]
+      drop_mode: "impute"
+      imputer: "per_cam_month_mean"
+    run_name_template: "f2_range_40_45_impute_lds_fds_fold{fold}"
+
+  # ---- drop variants (rows removed; train set shrinks) ----
+  - name: "f2_range_5_10_drop_baseline"
+    model: "resnet50"
+    folds: [0]
+    epochs: 30
+    batch_size: 64
+    lr: 0.001
+    num_workers: 4
+    seed: 0
+    corruption:
+      mode: "range"
+      range: [5.0, 10.0]
+      drop_mode: "drop"
+    run_name_template: "f2_range_5_10_drop_baseline_fold{fold}"
+
+  - name: "f2_range_5_10_drop_lds_fds"
+    model: "resnet50"
+    folds: [0]
+    epochs: 30
+    batch_size: 64
+    lr: 0.001
+    num_workers: 4
+    seed: 0
+    use_lds: true
+    lds_sigma: 5.0
+    lds_reweight: "sqrt_inv"
+    use_fds: true
+    fds_sigma: 5.0
+    fds_start_smooth: 1
+    corruption:
+      mode: "range"
+      range: [5.0, 10.0]
+      drop_mode: "drop"
+    run_name_template: "f2_range_5_10_drop_lds_fds_fold{fold}"
+
+  - name: "f2_range_25_30_drop_baseline"
+    model: "resnet50"
+    folds: [0]
+    epochs: 30
+    batch_size: 64
+    lr: 0.001
+    num_workers: 4
+    seed: 0
+    corruption:
+      mode: "range"
+      range: [25.0, 30.0]
+      drop_mode: "drop"
+    run_name_template: "f2_range_25_30_drop_baseline_fold{fold}"
+
+  - name: "f2_range_25_30_drop_lds_fds"
+    model: "resnet50"
+    folds: [0]
+    epochs: 30
+    batch_size: 64
+    lr: 0.001
+    num_workers: 4
+    seed: 0
+    use_lds: true
+    lds_sigma: 5.0
+    lds_reweight: "sqrt_inv"
+    use_fds: true
+    fds_sigma: 5.0
+    fds_start_smooth: 1
+    corruption:
+      mode: "range"
+      range: [25.0, 30.0]
+      drop_mode: "drop"
+    run_name_template: "f2_range_25_30_drop_lds_fds_fold{fold}"
+
+  - name: "f2_range_40_45_drop_baseline"
+    model: "resnet50"
+    folds: [0]
+    epochs: 30
+    batch_size: 64
+    lr: 0.001
+    num_workers: 4
+    seed: 0
+    corruption:
+      mode: "range"
+      range: [40.0, 45.0]
+      drop_mode: "drop"
+    run_name_template: "f2_range_40_45_drop_baseline_fold{fold}"
+
+  - name: "f2_range_40_45_drop_lds_fds"
+    model: "resnet50"
+    folds: [0]
+    epochs: 30
+    batch_size: 64
+    lr: 0.001
+    num_workers: 4
+    seed: 0
+    use_lds: true
+    lds_sigma: 5.0
+    lds_reweight: "sqrt_inv"
+    use_fds: true
+    fds_sigma: 5.0
+    fds_start_smooth: 1
+    corruption:
+      mode: "range"
+      range: [40.0, 45.0]
+      drop_mode: "drop"
+    run_name_template: "f2_range_40_45_drop_lds_fds_fold{fold}"
+
+  # =====================================================================
+  # F3. Rare-bin amplification. Drop fraction `drop_prob` of rows in bins
+  # with count < 20 (the "few" buckets), impute the labels.
+  # 3 drop_probs x {baseline, LDS+FDS} = 6 runs.
+  # =====================================================================
+  - name: "f3_rare_drop50_baseline"
+    model: "resnet50"
+    folds: [0]
+    epochs: 30
+    batch_size: 64
+    lr: 0.001
+    num_workers: 4
+    seed: 0
+    corruption:
+      mode: "rare_bin"
+      drop_prob: 0.50
+      bin_width: 1.0
+      few_max: 20
+      drop_mode: "impute"
+      imputer: "per_cam_month_mean"
+    run_name_template: "f3_rare_drop50_baseline_fold{fold}"
+
+  - name: "f3_rare_drop50_lds_fds"
+    model: "resnet50"
+    folds: [0]
+    epochs: 30
+    batch_size: 64
+    lr: 0.001
+    num_workers: 4
+    seed: 0
+    use_lds: true
+    lds_reweight: "sqrt_inv"
+    use_fds: true
+    fds_start_smooth: 1
+    corruption:
+      mode: "rare_bin"
+      drop_prob: 0.50
+      bin_width: 1.0
+      few_max: 20
+      drop_mode: "impute"
+      imputer: "per_cam_month_mean"
+    run_name_template: "f3_rare_drop50_lds_fds_fold{fold}"
+
+  - name: "f3_rare_drop80_baseline"
+    model: "resnet50"
+    folds: [0]
+    epochs: 30
+    batch_size: 64
+    lr: 0.001
+    num_workers: 4
+    seed: 0
+    corruption:
+      mode: "rare_bin"
+      drop_prob: 0.80
+      bin_width: 1.0
+      few_max: 20
+      drop_mode: "impute"
+      imputer: "per_cam_month_mean"
+    run_name_template: "f3_rare_drop80_baseline_fold{fold}"
+
+  - name: "f3_rare_drop80_lds_fds"
+    model: "resnet50"
+    folds: [0]
+    epochs: 30
+    batch_size: 64
+    lr: 0.001
+    num_workers: 4
+    seed: 0
+    use_lds: true
+    lds_reweight: "sqrt_inv"
+    use_fds: true
+    fds_start_smooth: 1
+    corruption:
+      mode: "rare_bin"
+      drop_prob: 0.80
+      bin_width: 1.0
+      few_max: 20
+      drop_mode: "impute"
+      imputer: "per_cam_month_mean"
+    run_name_template: "f3_rare_drop80_lds_fds_fold{fold}"
+
+  - name: "f3_rare_drop95_baseline"
+    model: "resnet50"
+    folds: [0]
+    epochs: 30
+    batch_size: 64
+    lr: 0.001
+    num_workers: 4
+    seed: 0
+    corruption:
+      mode: "rare_bin"
+      drop_prob: 0.95
+      bin_width: 1.0
+      few_max: 20
+      drop_mode: "impute"
+      imputer: "per_cam_month_mean"
+    run_name_template: "f3_rare_drop95_baseline_fold{fold}"
+
+  - name: "f3_rare_drop95_lds_fds"
+    model: "resnet50"
+    folds: [0]
+    epochs: 30
+    batch_size: 64
+    lr: 0.001
+    num_workers: 4
+    seed: 0
+    use_lds: true
+    lds_reweight: "sqrt_inv"
+    use_fds: true
+    fds_start_smooth: 1
+    corruption:
+      mode: "rare_bin"
+      drop_prob: 0.95
+      bin_width: 1.0
+      few_max: 20
+      drop_mode: "impute"
+      imputer: "per_cam_month_mean"
+    run_name_template: "f3_rare_drop95_lds_fds_fold{fold}"
+
+  # =====================================================================
+  # F5. Additive Gaussian noise on ALL training labels (no mask, no imputer).
+  # Tests DIR's robustness under per-sample label noise.
+  # noise_std in {1, 3, 5} C x {baseline, LDS+FDS} = 6 runs.
+  # =====================================================================
+  - name: "f5_noise_std1_baseline"
+    model: "resnet50"
+    folds: [0]
+    epochs: 30
+    batch_size: 64
+    lr: 0.001
+    num_workers: 4
+    seed: 0
+    corruption:
+      mode: "noise"
+      noise_std: 1.0
+    run_name_template: "f5_noise_std1_baseline_fold{fold}"
+
+  - name: "f5_noise_std1_lds_fds"
+    model: "resnet50"
+    folds: [0]
+    epochs: 30
+    batch_size: 64
+    lr: 0.001
+    num_workers: 4
+    seed: 0
+    use_lds: true
+    lds_reweight: "sqrt_inv"
+    use_fds: true
+    fds_start_smooth: 1
+    corruption:
+      mode: "noise"
+      noise_std: 1.0
+    run_name_template: "f5_noise_std1_lds_fds_fold{fold}"
+
+  - name: "f5_noise_std3_baseline"
+    model: "resnet50"
+    folds: [0]
+    epochs: 30
+    batch_size: 64
+    lr: 0.001
+    num_workers: 4
+    seed: 0
+    corruption:
+      mode: "noise"
+      noise_std: 3.0
+    run_name_template: "f5_noise_std3_baseline_fold{fold}"
+
+  - name: "f5_noise_std3_lds_fds"
+    model: "resnet50"
+    folds: [0]
+    epochs: 30
+    batch_size: 64
+    lr: 0.001
+    num_workers: 4
+    seed: 0
+    use_lds: true
+    lds_reweight: "sqrt_inv"
+    use_fds: true
+    fds_start_smooth: 1
+    corruption:
+      mode: "noise"
+      noise_std: 3.0
+    run_name_template: "f5_noise_std3_lds_fds_fold{fold}"
+
+  - name: "f5_noise_std5_baseline"
+    model: "resnet50"
+    folds: [0]
+    epochs: 30
+    batch_size: 64
+    lr: 0.001
+    num_workers: 4
+    seed: 0
+    corruption:
+      mode: "noise"
+      noise_std: 5.0
+    run_name_template: "f5_noise_std5_baseline_fold{fold}"
+
+  - name: "f5_noise_std5_lds_fds"
+    model: "resnet50"
+    folds: [0]
+    epochs: 30
+    batch_size: 64
+    lr: 0.001
+    num_workers: 4
+    seed: 0
+    use_lds: true
+    lds_reweight: "sqrt_inv"
+    use_fds: true
+    fds_start_smooth: 1
+    corruption:
+      mode: "noise"
+      noise_std: 5.0
+    run_name_template: "f5_noise_std5_lds_fds_fold{fold}"

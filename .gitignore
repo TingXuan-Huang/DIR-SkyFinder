@@ -1,0 +1,48 @@
+# Keep only the public README
+*.md
+!README.md
+
+# Slurm / cluster files
+*.slurm
+*.out
+*.err
+slurm-*.out
+skyfinder-*.out
+skyfinder-*.err
+ablations/logs/
+
+# Python cache
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+# macOS
+.DS_Store
+
+# Environments
+.conda/
+.venv/
+env/
+venv/
+
+# Large / generated data
+data/images/
+data/masks/
+data/*.csv
+data/*.parquet
+data/*.png
+
+# Keep reproducible split files if you want
+!data/splits/
+!data/splits/*.json
+
+# Results / checkpoints / figures
+results/
+figures/
+*.pt
+*.pth
+*.ckpt
+
+# Analysis generated outputs
+ablations/results/
+

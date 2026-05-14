@@ -1,0 +1,334 @@
+project_root: "."
+
+paths:
+  labels: "data/labels_with_images.csv"
+  splits: "data/splits/loco_5fold.json"
+  images: "data/images"
+  results: "ablations/results"
+
+save: true
+skip_existing: true
+
+# Mechanism-separation splits for F2 and F5 (18 runs).
+# The baseline + LDS+FDS pairs for these groups already live in config_ab.yaml;
+# this file ONLY adds the LDS-only and FDS-only variants so each (range, std)
+# point has a full 4-way comparison: baseline / LDS / FDS / LDS+FDS.
+#
+# F2 uses lds_sigma=fds_sigma=5.0 to match the LDS+FDS runs in config_ab.yaml
+# (bridging budget for the 5 C gap). F5 uses default sigmas (noise doesn't
+# shift the marginal histogram).
+#
+# F4 is NOT included here -- to be added later once F-family results are in.
+
+experiments:
+  # =====================================================================
+  # F2 impute -- LDS-only and FDS-only at sigma=5.
+  # 3 ranges x {LDS, FDS} = 6 runs.
+  # =====================================================================
+  - name: "f2_range_5_10_impute_lds"
+    model: "resnet50"
+    folds: [0]
+    epochs: 30
+    batch_size: 64
+    lr: 0.001
+    num_workers: 4
+    seed: 0
+    use_lds: true
+    lds_sigma: 5.0
+    lds_reweight: "sqrt_inv"
+    corruption:
+      mode: "range"
+      range: [5.0, 10.0]
+      drop_mode: "impute"
+      imputer: "per_cam_month_mean"
+    run_name_template: "f2_range_5_10_impute_lds_fold{fold}"
+
+  - name: "f2_range_5_10_impute_fds"
+    model: "resnet50"
+    folds: [0]
+    epochs: 30
+    batch_size: 64
+    lr: 0.001
+    num_workers: 4
+    seed: 0
+    use_fds: true
+    fds_sigma: 5.0
+    fds_start_smooth: 1
+    corruption:
+      mode: "range"
+      range: [5.0, 10.0]
+      drop_mode: "impute"
+      imputer: "per_cam_month_mean"
+    run_name_template: "f2_range_5_10_impute_fds_fold{fold}"
+
+  - name: "f2_range_25_30_impute_lds"
+    model: "resnet50"
+    folds: [0]
+    epochs: 30
+    batch_size: 64
+    lr: 0.001
+    num_workers: 4
+    seed: 0
+    use_lds: true
+    lds_sigma: 5.0
+    lds_reweight: "sqrt_inv"
+    corruption:
+      mode: "range"
+      range: [25.0, 30.0]
+      drop_mode: "impute"
+      imputer: "per_cam_month_mean"
+    run_name_template: "f2_range_25_30_impute_lds_fold{fold}"
+
+  - name: "f2_range_25_30_impute_fds"
+    model: "resnet50"
+    folds: [0]
+    epochs: 30
+    batch_size: 64
+    lr: 0.001
+    num_workers: 4
+    seed: 0
+    use_fds: true
+    fds_sigma: 5.0
+    fds_start_smooth: 1
+    corruption:
+      mode: "range"
+      range: [25.0, 30.0]
+      drop_mode: "impute"
+      imputer: "per_cam_month_mean"
+    run_name_template: "f2_range_25_30_impute_fds_fold{fold}"
+
+  - name: "f2_range_40_45_impute_lds"
+    model: "resnet50"
+    folds: [0]
+    epochs: 30
+    batch_size: 64
+    lr: 0.001
+    num_workers: 4
+    seed: 0
+    use_lds: true
+    lds_sigma: 5.0
+    lds_reweight: "sqrt_inv"
+    corruption:
+      mode: "range"
+      range: [40.0, 45.0]
+      drop_mode: "impute"
+      imputer: "per_cam_month_mean"
+    run_name_template: "f2_range_40_45_impute_lds_fold{fold}"
+
+  - name: "f2_range_40_45_impute_fds"
+    model: "resnet50"
+    folds: [0]
+    epochs: 30
+    batch_size: 64
+    lr: 0.001
+    num_workers: 4
+    seed: 0
+    use_fds: true
+    fds_sigma: 5.0
+    fds_start_smooth: 1
+    corruption:
+      mode: "range"
+      range: [40.0, 45.0]
+      drop_mode: "impute"
+      imputer: "per_cam_month_mean"
+    run_name_template: "f2_range_40_45_impute_fds_fold{fold}"
+
+  # =====================================================================
+  # F2 drop -- LDS-only and FDS-only at sigma=5.
+  # 3 ranges x {LDS, FDS} = 6 runs.
+  # =====================================================================
+  - name: "f2_range_5_10_drop_lds"
+    model: "resnet50"
+    folds: [0]
+    epochs: 30
+    batch_size: 64
+    lr: 0.001
+    num_workers: 4
+    seed: 0
+    use_lds: true
+    lds_sigma: 5.0
+    lds_reweight: "sqrt_inv"
+    corruption:
+      mode: "range"
+      range: [5.0, 10.0]
+      drop_mode: "drop"
+    run_name_template: "f2_range_5_10_drop_lds_fold{fold}"
+
+  - name: "f2_range_5_10_drop_fds"
+    model: "resnet50"
+    folds: [0]
+    epochs: 30
+    batch_size: 64
+    lr: 0.001
+    num_workers: 4
+    seed: 0
+    use_fds: true
+    fds_sigma: 5.0
+    fds_start_smooth: 1
+    corruption:
+      mode: "range"
+      range: [5.0, 10.0]
+      drop_mode: "drop"
+    run_name_template: "f2_range_5_10_drop_fds_fold{fold}"
+
+  - name: "f2_range_25_30_drop_lds"
+    model: "resnet50"
+    folds: [0]
+    epochs: 30
+    batch_size: 64
+    lr: 0.001
+    num_workers: 4
+    seed: 0
+    use_lds: true
+    lds_sigma: 5.0
+    lds_reweight: "sqrt_inv"
+    corruption:
+      mode: "range"
+      range: [25.0, 30.0]
+      drop_mode: "drop"
+    run_name_template: "f2_range_25_30_drop_lds_fold{fold}"
+
+  - name: "f2_range_25_30_drop_fds"
+    model: "resnet50"
+    folds: [0]
+    epochs: 30
+    batch_size: 64
+    lr: 0.001
+    num_workers: 4
+    seed: 0
+    use_fds: true
+    fds_sigma: 5.0
+    fds_start_smooth: 1
+    corruption:
+      mode: "range"
+      range: [25.0, 30.0]
+      drop_mode: "drop"
+    run_name_template: "f2_range_25_30_drop_fds_fold{fold}"
+
+  - name: "f2_range_40_45_drop_lds"
+    model: "resnet50"
+    folds: [0]
+    epochs: 30
+    batch_size: 64
+    lr: 0.001
+    num_workers: 4
+    seed: 0
+    use_lds: true
+    lds_sigma: 5.0
+    lds_reweight: "sqrt_inv"
+    corruption:
+      mode: "range"
+      range: [40.0, 45.0]
+      drop_mode: "drop"
+    run_name_template: "f2_range_40_45_drop_lds_fold{fold}"
+
+  - name: "f2_range_40_45_drop_fds"
+    model: "resnet50"
+    folds: [0]
+    epochs: 30
+    batch_size: 64
+    lr: 0.001
+    num_workers: 4
+    seed: 0
+    use_fds: true
+    fds_sigma: 5.0
+    fds_start_smooth: 1
+    corruption:
+      mode: "range"
+      range: [40.0, 45.0]
+      drop_mode: "drop"
+    run_name_template: "f2_range_40_45_drop_fds_fold{fold}"
+
+  # =====================================================================
+  # F5 -- LDS-only and FDS-only at default sigmas.
+  # 3 noise stds x {LDS, FDS} = 6 runs.
+  # =====================================================================
+  - name: "f5_noise_std1_lds"
+    model: "resnet50"
+    folds: [0]
+    epochs: 30
+    batch_size: 64
+    lr: 0.001
+    num_workers: 4
+    seed: 0
+    use_lds: true
+    lds_reweight: "sqrt_inv"
+    corruption:
+      mode: "noise"
+      noise_std: 1.0
+    run_name_template: "f5_noise_std1_lds_fold{fold}"
+
+  - name: "f5_noise_std1_fds"
+    model: "resnet50"
+    folds: [0]
+    epochs: 30
+    batch_size: 64
+    lr: 0.001
+    num_workers: 4
+    seed: 0
+    use_fds: true
+    fds_start_smooth: 1
+    corruption:
+      mode: "noise"
+      noise_std: 1.0
+    run_name_template: "f5_noise_std1_fds_fold{fold}"
+
+  - name: "f5_noise_std3_lds"
+    model: "resnet50"
+    folds: [0]
+    epochs: 30
+    batch_size: 64
+    lr: 0.001
+    num_workers: 4
+    seed: 0
+    use_lds: true
+    lds_reweight: "sqrt_inv"
+    corruption:
+      mode: "noise"
+      noise_std: 3.0
+    run_name_template: "f5_noise_std3_lds_fold{fold}"
+
+  - name: "f5_noise_std3_fds"
+    model: "resnet50"
+    folds: [0]
+    epochs: 30
+    batch_size: 64
+    lr: 0.001
+    num_workers: 4
+    seed: 0
+    use_fds: true
+    fds_start_smooth: 1
+    corruption:
+      mode: "noise"
+      noise_std: 3.0
+    run_name_template: "f5_noise_std3_fds_fold{fold}"
+
+  - name: "f5_noise_std5_lds"
+    model: "resnet50"
+    folds: [0]
+    epochs: 30
+    batch_size: 64
+    lr: 0.001
+    num_workers: 4
+    seed: 0
+    use_lds: true
+    lds_reweight: "sqrt_inv"
+    corruption:
+      mode: "noise"
+      noise_std: 5.0
+    run_name_template: "f5_noise_std5_lds_fold{fold}"
+
+  - name: "f5_noise_std5_fds"
+    model: "resnet50"
+    folds: [0]
+    epochs: 30
+    batch_size: 64
+    lr: 0.001
+    num_workers: 4
+    seed: 0
+    use_fds: true
+    fds_start_smooth: 1
+    corruption:
+      mode: "noise"
+      noise_std: 5.0
+    run_name_template: "f5_noise_std5_fds_fold{fold}"
