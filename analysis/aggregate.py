@@ -37,8 +37,7 @@ import pandas as pd
 import yaml
 
 
-RESULT_DIRS = [Path("results"), Path("ablations/results")]
-ABLATION_CONFIGS = [Path("ablations/config_ab.yaml"), Path("ablations/config_ab2.yaml")]
+_CONFIG_LOOKUP: dict[str, dict] = {}   # populated by build_dataframe() from the active config
 
 
 # ============================================================
@@ -110,8 +109,8 @@ def _run_name_from_template(exp: dict, fold: int) -> str:
     )
 
 
-def _load_config_lookup(config_paths: list[Path] = ABLATION_CONFIGS) -> dict[str, dict]:
-    """Map saved run_name -> experiment config from the ablation YAML files."""
+def _load_config_lookup(config_paths: list[Path]) -> dict[str, dict]:
+    """Map saved run_name -> experiment config from the given ablation YAML files."""
     lookup: dict[str, dict] = {}
     for path in config_paths:
         if not path.exists():
@@ -125,12 +124,12 @@ def _load_config_lookup(config_paths: list[Path] = ABLATION_CONFIGS) -> dict[str
     return lookup
 
 
-CONFIG_LOOKUP = _load_config_lookup()
-
-
 def _fill_cfg_from_yaml(name: str, cfg: dict) -> dict:
-    """JSON config wins, but YAML fills fields that older JSONs saved as null/missing."""
-    fallback = CONFIG_LOOKUP.get(name)
+    """JSON config wins, but YAML fills fields that older JSONs saved as null/missing.
+
+    Reads from `_CONFIG_LOOKUP` (populated by build_dataframe()).
+    """
+    fallback = _CONFIG_LOOKUP.get(name)
     if not fallback:
         return cfg
     merged = fallback.copy()
@@ -227,10 +226,28 @@ def _parse_one(path: Path) -> list[dict]:
 # Public API
 # ============================================================
 
-def build_dataframe(result_dirs: list[Path] | None = None) -> pd.DataFrame:
-    """Glob all `*.json` in result_dirs, return one flat df."""
-    dirs = result_dirs if result_dirs is not None else RESULT_DIRS
-    rows = []
+def _load_test_inference(path: Path) -> dict[str, dict]:
+    """Returns {run_name: row_dict} from test_inference.json (produced by inference.py)."""
+    if not path.exists():
+        return {}
+    return json.loads(path.read_text()).get("runs", {}) or {}
+
+
+def build_dataframe(config: dict) -> pd.DataFrame:
+    """Glob all `*.json` in `config["aggregate_result_dirs"]`, return one flat df.
+
+    After per-run parsing, merges `config["test_inference_path"]` into the
+    matching rows' `test_overall/many/medium/few` columns -- so test data flows
+    into figures even though `baseline.py` itself never writes `final_test`.
+    """
+    dirs = [Path(d) for d in config["aggregate_result_dirs"]]
+    ablation_yamls = [Path(p) for p in config.get("ablation_yamls", [])]
+
+    # Populate the YAML fallback lookup used by `_fill_cfg_from_yaml`.
+    global _CONFIG_LOOKUP
+    _CONFIG_LOOKUP = _load_config_lookup(ablation_yamls)
+
+    rows: list[dict] = []
     for d in dirs:
         if not d.exists():
             continue
@@ -239,10 +256,28 @@ def build_dataframe(result_dirs: list[Path] | None = None) -> pd.DataFrame:
                 rows.extend(_parse_one(path))
             except Exception as e:
                 print(f"[skip] {path}: {e}")
+
+    # Merge test_inference.json by run_name (only overwrites the test_* columns).
+    test_inference_path = Path(config["test_inference_path"])
+    test_runs = _load_test_inference(test_inference_path)
+    n_merged = 0
+    for row in rows:
+        entry = test_runs.get(row["name"])
+        if not entry:
+            continue
+        t = entry.get("test", {}) or {}
+        row["test_overall"] = t.get("overall")
+        row["test_many"]    = t.get("many")
+        row["test_medium"]  = t.get("medium")
+        row["test_few"]     = t.get("few")
+        n_merged += 1
+    if test_runs:
+        print(f"[merge] {n_merged}/{len(rows)} rows received test-set MAE from {test_inference_path}")
+
     return pd.DataFrame(rows)
 
 
-def save_csv(df: pd.DataFrame, out: Path | str = "ablations/results/aggregate.csv") -> Path:
+def save_csv(df: pd.DataFrame, out: Path | str) -> Path:
     out = Path(out)
     out.parent.mkdir(parents=True, exist_ok=True)
     df.to_csv(out, index=False)
@@ -250,10 +285,13 @@ def save_csv(df: pd.DataFrame, out: Path | str = "ablations/results/aggregate.cs
     return out
 
 
-def main():
-    df = build_dataframe()
+def main(config: dict | None = None):
+    if config is None:
+        from analysis._config import load_config
+        config = load_config()
+    df = build_dataframe(config)
     print(df.groupby("group").size().to_string())
-    save_csv(df)
+    save_csv(df, config["aggregate_csv"])
 
 
 if __name__ == "__main__":

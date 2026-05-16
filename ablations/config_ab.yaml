@@ -9,7 +9,7 @@ paths:
 save: true
 skip_existing: true
 
-# Ablation sweep — drives D4, E1, F1, F2, F3, F5 (35 runs).
+# Ablation sweep — drives D4, E1, F1, F2, F3, F5 (37 runs).
 # C2 is CPU-only and not in this file; run with:
 #     python -m ablations.ablation c2
 #
@@ -19,8 +19,8 @@ skip_existing: true
 experiments:
   # =====================================================================
   # D4. Linear probe (backbone frozen, only the regression head trains).
-  # 2 runs: baseline vs +LDS+FDS. Reference (unfrozen) runs already exist
-  # in results/baseline_resnet50_fold0 and results/lds_fds_resnet50_fold0.
+  # 4 runs: baseline, LDS, FDS, LDS+FDS. Reference (unfrozen) runs already
+  # exist in results/<kind>_resnet50_fold0.
   # =====================================================================
   - name: "d4_linprobe_resnet"
     model: "resnet50"
@@ -32,6 +32,32 @@ experiments:
     seed: 0
     freeze_backbone: true
     run_name_template: "d4_linprobe_resnet_fold{fold}"
+
+  - name: "d4_linprobe_resnet_lds"
+    model: "resnet50"
+    folds: [0]
+    epochs: 30
+    batch_size: 64
+    lr: 0.001
+    num_workers: 4
+    seed: 0
+    freeze_backbone: true
+    use_lds: true
+    lds_reweight: "sqrt_inv"
+    run_name_template: "d4_linprobe_resnet_lds_fold{fold}"
+
+  - name: "d4_linprobe_resnet_fds"
+    model: "resnet50"
+    folds: [0]
+    epochs: 30
+    batch_size: 64
+    lr: 0.001
+    num_workers: 4
+    seed: 0
+    freeze_backbone: true
+    use_fds: true
+    fds_start_smooth: 1
+    run_name_template: "d4_linprobe_resnet_fds_fold{fold}"
 
   - name: "d4_linprobe_resnet_lds_fds"
     model: "resnet50"

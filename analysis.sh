@@ -53,7 +53,7 @@ python analysis.py c1 || echo "[warn] c1 failed"
 
 # --- 2. C2: metadata-only HistGBR (CPU, ~5 min) ---
 banner "C2: metadata-only HistGBR (CPU)"
-python ablation.py c2 || echo "[warn] c2 failed"
+python analysis.py c2 || echo "[warn] c2 failed"
 
 # --- 3a. Download sky masks for fold 0 val cameras (network, ~30 s) ---
 banner "Download sky masks (fold 0 val cams) -> data/masks/"
@@ -66,6 +66,10 @@ python analysis.py d1 || echo "[warn] d1 failed"
 # --- 4. Embeddings: extract 2048-d penultimate features (GPU, ~5 min) ---
 banner "Embeddings: extract penultimate features (GPU; needs checkpoints)"
 python analysis.py embeddings || echo "[warn] embeddings failed (likely missing checkpoints in results/)"
+
+# --- 4c. Test-set inference: run every saved checkpoint on the LOCO test split ---
+banner "Inference: test-set MAE for every checkpoint (GPU) -> results/test_inference.json"
+python inference.py || echo "[warn] inference failed (likely missing checkpoints)"
 
 # --- 5. Aggregate: build flat CSV from all result JSONs (CPU, ~1 s) ---
 banner "Aggregate: build aggregate.csv"
@@ -80,5 +84,6 @@ echo "  ablations/results/c1_constants.json"
 echo "  ablations/results/c2_metadata_only.json"
 echo "  ablations/results/d1_skymask.json           (if masks present)"
 echo "  ablations/results/embeddings/*.npz          (if checkpoints present)"
+echo "  results/test_inference.json                 (test MAE for every saved checkpoint)"
 echo "  ablations/results/aggregate.csv"
 echo "  figures/*.{pdf,png}"

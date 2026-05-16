@@ -1,91 +1,145 @@
-"""Top-level CLI for the analysis pipeline. Each subcommand maps to one of the
-`analysis/` modules. C2 lives in `ablation.py` (it predates this file and didn't
-need to move).
+"""Top-level CLI for the analysis pipeline.
+
+Every subcommand resolves paths from `analysis_config.yaml` (override with
+`--config PATH`). C2 lives in `ablation.py` (its CLI predates this file).
 
 Examples:
-    python analysis.py c1                         # constant predictors (no GPU)
-    python analysis.py d1                         # sky-mask inference (4 ckpts x fold 0)
-    python analysis.py embeddings                 # extract 2048-d features (4 ckpts x fold 0)
-    python analysis.py aggregate                  # build ablations/results/aggregate.csv
-    python analysis.py figures                    # render all PDFs/PNGs into figures/
-    python analysis.py all                        # c1 -> aggregate -> figures (skips d1/embeddings)
+    python analysis.py c1                              # constant predictors (no GPU)
+    python analysis.py d1                              # sky-mask inference (4 ckpts x fold 0)
+    python analysis.py embeddings                      # extract 2048-d features (val + test)
+    python analysis.py trajectory --with-figures       # per-epoch features + plots
+    python analysis.py aggregate                       # build aggregate.csv
+    python analysis.py figures                         # render all PDFs/PNGs
+    python analysis.py all                             # c1 -> aggregate -> figures
+    python analysis.py --config other.yaml figures     # use a different config
 """
 from __future__ import annotations
 
 import argparse
 from pathlib import Path
 
+from analysis._config import load_config
 
-def _cmd_c1(a):
+
+def _cmd_c1(cfg, a):
     from analysis.c1 import run_c1
-    run_c1(a.labels, a.splits, a.out)
+    run_c1(cfg, out_path=a.out)
 
 
-def _cmd_d1(a):
+def _cmd_c2(cfg, a):
+    from analysis.c2 import run_c2
+    run_c2(cfg, out_path=a.out, seed=a.seed)
+
+
+def _cmd_d1(cfg, a):
     from analysis.d1 import run_d1
-    run_d1(a.out, mask_dir=a.masks, fold=a.fold,
+    run_d1(cfg, out_path=a.out, fold=a.fold,
            batch_size=a.batch_size, num_workers=a.num_workers)
 
 
-def _cmd_embeddings(a):
+def _cmd_linear_probe(cfg, a):
+    from analysis.linear_probe import run_linear_probe_summary
+    run_linear_probe_summary(cfg, out_path=a.out, fold=a.fold)
+
+
+def _cmd_embeddings(cfg, a):
     from analysis.embeddings import run_embeddings
-    run_embeddings(a.out_dir, fold=a.fold,
+    run_embeddings(cfg, out_dir=a.out_dir, fold=a.fold,
                    batch_size=a.batch_size, num_workers=a.num_workers)
 
 
-def _cmd_aggregate(_a):
+def _cmd_trajectory(cfg, a):
+    from analysis.trajectory import DEFAULT_RUNS, run_trajectory
+    runs = tuple(a.runs) if a.runs else DEFAULT_RUNS
+    splits = tuple(a.splits) if a.splits else ("train", "val", "test")
+    train_subsample = None if a.no_subsample else a.train_subsample
+    run_trajectory(cfg, out_dir=a.out_dir, fold=a.fold, runs=runs, splits=splits,
+                   train_subsample=train_subsample,
+                   batch_size=a.batch_size, num_workers=a.num_workers)
+    if a.with_figures:
+        from analysis.figures import make_trajectory
+        make_trajectory(cfg, runs=runs, fold=a.fold)
+
+
+def _cmd_aggregate(cfg, _a):
     from analysis.aggregate import main as agg_main
-    agg_main()
+    agg_main(cfg)
 
 
-def _cmd_figures(_a):
+def _cmd_figures(cfg, _a):
     from analysis.figures import main as fig_main
-    fig_main()
+    fig_main(cfg)
 
 
-def _cmd_all(_a):
-    # Lightweight pipeline: things that don't need GPU/checkpoints.
+def _cmd_all(cfg, _a):
     from analysis.c1 import run_c1
     from analysis.aggregate import main as agg_main
     from analysis.figures import main as fig_main
-    run_c1(Path("data/labels_with_images.csv"),
-           Path("data/splits/loco_5fold.json"),
-           Path("ablations/results/c1_constants.json"))
-    agg_main()
-    fig_main()
+    run_c1(cfg)
+    agg_main(cfg)
+    fig_main(cfg)
 
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    ap.add_argument("--config", type=Path, default=Path("analysis_config.yaml"),
+                    help="path to analysis config YAML (default: analysis_config.yaml)")
     sub = ap.add_subparsers(dest="cmd", required=True)
 
     p = sub.add_parser("c1", help="constant predictors (CPU, ~10s)")
-    p.add_argument("--labels", type=Path, default=Path("data/labels_with_images.csv"))
-    p.add_argument("--splits", type=Path, default=Path("data/splits/loco_5fold.json"))
-    p.add_argument("--out",    type=Path, default=Path("ablations/results/c1_constants.json"))
+    p.add_argument("--out", type=Path, default=None, help="override config['c1_results_path']")
     p.set_defaults(func=_cmd_c1)
 
+    p = sub.add_parser("c2", help="metadata-only HistGBR baseline (CPU, ~5min)")
+    p.add_argument("--out", type=Path, default=None, help="override config['c2_results_path']")
+    p.add_argument("--seed", type=int, default=0)
+    p.set_defaults(func=_cmd_c2)
+
+    p = sub.add_parser("linear_probe", help="D4: compute linprobe vs full-FT delta")
+    p.add_argument("--out",  type=Path, default=None,
+                   help="override default: <ablation_results_dir>/d4_linprobe_summary.json")
+    p.add_argument("--fold", type=int, default=0)
+    p.set_defaults(func=_cmd_linear_probe)
+
     p = sub.add_parser("d1", help="sky-mask inference, 4 ckpts x fold 0 (GPU)")
-    p.add_argument("--masks", type=Path, default=Path("data/masks"))
     p.add_argument("--fold",  type=int,  default=0)
-    p.add_argument("--out",   type=Path, default=Path("ablations/results/d1_skymask.json"))
+    p.add_argument("--out",   type=Path, default=None, help="override config['d1_results_path']")
     p.add_argument("--batch-size",  type=int, default=32)
     p.add_argument("--num-workers", type=int, default=2)
     p.set_defaults(func=_cmd_d1)
 
-    p = sub.add_parser("embeddings", help="extract penultimate features, 4 ckpts x fold 0 (GPU)")
-    p.add_argument("--out-dir", type=Path, default=Path("ablations/results/embeddings"))
+    p = sub.add_parser("embeddings", help="extract penultimate features (val + test, fold 0)")
+    p.add_argument("--out-dir", type=Path, default=None, help="override config['embeddings_dir']")
     p.add_argument("--fold",    type=int,  default=0)
     p.add_argument("--batch-size",  type=int, default=32)
     p.add_argument("--num-workers", type=int, default=2)
     p.set_defaults(func=_cmd_embeddings)
+
+    p = sub.add_parser("trajectory",
+                       help="embedding trajectory across snapshot epochs (requires snapshot_every>0)")
+    p.add_argument("--out-dir", type=Path, default=None, help="override config['trajectory_dir']")
+    p.add_argument("--fold",    type=int,  default=0)
+    p.add_argument("--runs",    nargs="+", default=None,
+                   help="run names (default: 4 configs x 2 archs)")
+    p.add_argument("--splits",  nargs="+", default=None,
+                   help="which splits to extract (default: train val test)")
+    p.add_argument("--train-subsample", type=int, default=5000,
+                   help="random subsample size for train (default 5000)")
+    p.add_argument("--no-subsample", action="store_true",
+                   help="disable train subsampling (full ~65k images per snapshot)")
+    p.add_argument("--with-figures", action="store_true",
+                   help="render PCA/CKA/knn-mae figures right after extraction")
+    p.add_argument("--batch-size",  type=int, default=32)
+    p.add_argument("--num-workers", type=int, default=2)
+    p.set_defaults(func=_cmd_trajectory)
 
     sub.add_parser("aggregate", help="build aggregate.csv from all result JSONs").set_defaults(func=_cmd_aggregate)
     sub.add_parser("figures",   help="render all nature-style figures").set_defaults(func=_cmd_figures)
     sub.add_parser("all",       help="c1 -> aggregate -> figures (skips d1/embeddings)").set_defaults(func=_cmd_all)
 
     a = ap.parse_args()
-    a.func(a)
+    cfg = load_config(a.config)
+    a.func(cfg, a)
 
 
 if __name__ == "__main__":

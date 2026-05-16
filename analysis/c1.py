@@ -5,14 +5,11 @@ Three predictors, fit on each fold's train slice, evaluated on val + test:
   - per_cam_mean       : groupby CamId  -> mean(TempM); fall back to global
   - per_cam_month_mean : groupby (CamId, Month) -> mean(TempM); falls back per-cam, then global
 
-Output: `ablations/results/c1_constants.json` with `per_fold` rows shaped like
-C2's, so `analysis/aggregate.py` can ingest them with the same code path.
+Output: `<c1_results_path>` (from config) with `per_fold` rows shaped like
+C2's, so `analysis/aggregate.py` ingests them with the same code path.
 
-Run:
-    python analysis.py c1
-        [--labels data/labels_with_images.csv]
-        [--splits data/splits/loco_5fold.json]
-        [--out ablations/results/c1_constants.json]
+All paths come from `config` (loaded from `analysis_config.yaml`); only the
+per-bin MAE helper is imported from `dir_skyfinder.baseline` (code, not config).
 """
 from __future__ import annotations
 
@@ -22,15 +19,14 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-# Reuse the same per-bin convention as baseline.per_bin_mae and ablation._per_bin_mae.
-from ablation import _per_bin_mae
+from dir_skyfinder.baseline import per_bin_mae
 
 
 PREDICTORS = ("global_mean", "per_cam_mean", "per_cam_month_mean")
 
 
-def _fit_predict(train_df: pd.DataFrame, kind: str) -> dict:
-    """Returns a dict with predict(df) -> ndarray, plus a stash of `global_mean` for backstop."""
+def _fit_predict(train_df: pd.DataFrame, kind: str):
+    """Returns a callable predict(df) -> ndarray for one predictor kind."""
     gmean = float(train_df["TempM"].mean())
     if kind == "global_mean":
         def predict(d):
@@ -53,12 +49,21 @@ def _fit_predict(train_df: pd.DataFrame, kind: str) -> dict:
             return out
     else:
         raise ValueError(f"unknown predictor: {kind!r}")
-    return {"predict": predict}
+    return predict
 
 
-def run_c1(labels_path: Path, splits_path: Path, out_path: Path) -> dict:
+def run_c1(config: dict, out_path: Path | str | None = None) -> dict:
+    """Compute the 3 constant predictors per fold; write JSON.
+
+    `config` is the loaded `analysis_config.yaml`. `out_path` overrides
+    `config["c1_results_path"]` if given.
+    """
+    labels_path = Path(config["labels_path"])
+    splits_path = Path(config["splits_path"])
+    out_path = Path(out_path) if out_path is not None else Path(config["c1_results_path"])
+
     df = pd.read_csv(labels_path)
-    splits = json.loads(Path(splits_path).read_text())
+    splits = json.loads(splits_path.read_text())
 
     results: dict = {"per_fold": [], "predictors": list(PREDICTORS)}
     for f in splits:
@@ -68,11 +73,11 @@ def run_c1(labels_path: Path, splits_path: Path, out_path: Path) -> dict:
         test_df  = df.iloc[f["test"]]
         y_train = train_df["TempM"].to_numpy()
         for kind in PREDICTORS:
-            mdl = _fit_predict(train_df, kind)
-            val_pred  = mdl["predict"](val_df)
-            test_pred = mdl["predict"](test_df)
-            val_mae  = _per_bin_mae(val_df["TempM"].to_numpy(), val_pred, y_train)
-            test_mae = _per_bin_mae(test_df["TempM"].to_numpy(), test_pred, y_train)
+            predict = _fit_predict(train_df, kind)
+            val_pred  = predict(val_df)
+            test_pred = predict(test_df)
+            val_mae  = per_bin_mae(val_df["TempM"].to_numpy(),  val_pred,  y_train)
+            test_mae = per_bin_mae(test_df["TempM"].to_numpy(), test_pred, y_train)
             results["per_fold"].append({
                 "fold": fold,
                 "predictor": kind,
@@ -101,7 +106,6 @@ def run_c1(labels_path: Path, splits_path: Path, out_path: Path) -> dict:
               f"test={summary[kind]['test_mae_mean']:.3f} +/- {summary[kind]['test_mae_std']:.3f}")
     results["summary"] = summary
 
-    out_path = Path(out_path)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(json.dumps(results, indent=2))
     print(f"[saved] {out_path}")

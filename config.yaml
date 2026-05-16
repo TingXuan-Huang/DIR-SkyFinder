@@ -26,22 +26,24 @@ experiments:
   # --- ResNet-50: 4 configs (vanilla / +LDS / +FDS / +LDS+FDS) ---
   - name: "baseline_resnet50"
     model: "resnet50"
-    folds: [0, 1, 2, 3, 4]
-    epochs: 30
-    batch_size: 64
+    folds: [0]
+    epochs: 50
+    batch_size: 128
     lr: 0.001
     num_workers: 4
     seed: 0
+    snapshot_every: 5
     run_name_template: "baseline_resnet50_fold{fold}"
 
   - name: "lds_resnet50"
     model: "resnet50"
-    folds: [0, 1, 2, 3, 4]
-    epochs: 30
-    batch_size: 64
+    folds: [0]
+    epochs: 50
+    batch_size: 128
     lr: 0.001
     num_workers: 4
     seed: 0
+    snapshot_every: 5
     use_lds: true
     lds_kernel: "gaussian"
     lds_ks: 5
@@ -51,12 +53,13 @@ experiments:
 
   - name: "fds_resnet50"
     model: "resnet50"
-    folds: [0, 1, 2, 3, 4]
-    epochs: 30
-    batch_size: 64
+    folds: [0]
+    epochs: 50
+    batch_size: 128
     lr: 0.001
     num_workers: 4
     seed: 0
+    snapshot_every: 5
     use_fds: true
     fds_kernel: "gaussian"
     fds_ks: 5
@@ -67,12 +70,13 @@ experiments:
 
   - name: "lds_fds_resnet50"
     model: "resnet50"
-    folds: [0, 1, 2, 3, 4]
-    epochs: 30
-    batch_size: 64
+    folds: [0]
+    epochs: 50
+    batch_size: 128
     lr: 0.001
     num_workers: 4
     seed: 0
+    snapshot_every: 5
     use_lds: true
     lds_reweight: "sqrt_inv"
     use_fds: true
@@ -82,46 +86,50 @@ experiments:
   # --- ViT-B/16: 4 configs ---
   - name: "baseline_vit"
     model: "vit_b_16"
-    folds: [0, 1, 2, 3, 4]
-    epochs: 30
-    batch_size: 64
+    folds: [0]
+    epochs: 50
+    batch_size: 128
     lr: 0.001
     num_workers: 4
     seed: 0
+    snapshot_every: 5
     run_name_template: "baseline_vit_fold{fold}"
 
   - name: "lds_vit"
     model: "vit_b_16"
-    folds: [0, 1, 2, 3, 4]
-    epochs: 30
-    batch_size: 64
+    folds: [0]
+    epochs: 50
+    batch_size: 128
     lr: 0.001
     num_workers: 4
     seed: 0
+    snapshot_every: 5
     use_lds: true
     lds_reweight: "sqrt_inv"
     run_name_template: "lds_vit_fold{fold}"
 
   - name: "fds_vit"
     model: "vit_b_16"
-    folds: [0, 1, 2, 3, 4]
-    epochs: 30
-    batch_size: 64
+    folds: [0]
+    epochs: 50
+    batch_size: 128
     lr: 0.001
     num_workers: 4
     seed: 0
+    snapshot_every: 5
     use_fds: true
     fds_start_smooth: 1
     run_name_template: "fds_vit_fold{fold}"
 
   - name: "lds_fds_vit"
     model: "vit_b_16"
-    folds: [0, 1, 2, 3, 4]
-    epochs: 30
-    batch_size: 64
+    folds: [0]
+    epochs: 50
+    batch_size: 128
     lr: 0.001
     num_workers: 4
     seed: 0
+    snapshot_every: 5
     use_lds: true
     lds_reweight: "sqrt_inv"
     use_fds: true
