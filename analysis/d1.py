@@ -101,7 +101,7 @@ def _build_model_from_results(config: dict, results_path: Path,
     """
     d = json.loads(results_path.read_text())
     cfg = d["config"]
-    vanilla = make_model(cfg["model"], freeze_backbone=False)
+    vanilla = make_model(cfg["model"], freeze_backbone=False, pretrained=False)
     if cfg.get("use_fds", False):
         feature_dim = 2048 if cfg["model"] == "resnet50" else 768
         bin_width = float(cfg.get("bin_width", config.get("default_bin_width", 1.0)))

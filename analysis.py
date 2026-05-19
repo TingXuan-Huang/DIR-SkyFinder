@@ -32,8 +32,9 @@ def _cmd_c2(cfg, a):
 
 
 def _cmd_d1(cfg, a):
-    from analysis.d1 import run_d1
-    run_d1(cfg, out_path=a.out, fold=a.fold,
+    from analysis.d1 import DEFAULT_RUNS, run_d1
+    runs = tuple(a.runs) if a.runs else DEFAULT_RUNS
+    run_d1(cfg, out_path=a.out, fold=a.fold, runs=runs,
            batch_size=a.batch_size, num_workers=a.num_workers)
 
 
@@ -43,8 +44,9 @@ def _cmd_linear_probe(cfg, a):
 
 
 def _cmd_embeddings(cfg, a):
-    from analysis.embeddings import run_embeddings
-    run_embeddings(cfg, out_dir=a.out_dir, fold=a.fold,
+    from analysis.embeddings import DEFAULT_RUNS, run_embeddings
+    runs = tuple(a.runs) if a.runs else DEFAULT_RUNS
+    run_embeddings(cfg, out_dir=a.out_dir, fold=a.fold, runs=runs,
                    batch_size=a.batch_size, num_workers=a.num_workers)
 
 
@@ -59,6 +61,31 @@ def _cmd_trajectory(cfg, a):
     if a.with_figures:
         from analysis.figures import make_trajectory
         make_trajectory(cfg, runs=runs, fold=a.fold)
+
+
+def _cmd_sample_traj(cfg, a):
+    from analysis.figures_sample_trajectory import DEFAULT_RUNS, make_sample_trajectory
+    runs    = tuple(a.runs) if a.runs else DEFAULT_RUNS
+    splits  = tuple(a.splits) if a.splits else ("val", "test")
+    schemes = tuple(a.bin_schemes) if a.bin_schemes else ("freq", "temp")
+    make_sample_trajectory(cfg, runs=runs, fold=a.fold, splits=splits,
+                           bin_schemes=schemes, seed=a.seed)
+
+
+def _cmd_closest_train(cfg, a):
+    from analysis.closest_train_inspect import DEFAULT_RUNS, run_closest_train_inspect
+    runs = tuple(a.runs) if a.runs else DEFAULT_RUNS
+    run_closest_train_inspect(cfg, runs=runs, fold=a.fold, seed=a.seed)
+
+
+def _cmd_bin_traj(cfg, a):
+    from analysis.figures_sample_trajectory import DEFAULT_RUNS, make_bin_distribution_traj
+    runs    = tuple(a.runs) if a.runs else DEFAULT_RUNS
+    splits  = tuple(a.splits) if a.splits else ("val", "test")
+    schemes = tuple(a.bin_schemes) if a.bin_schemes else ("freq", "temp")
+    make_bin_distribution_traj(cfg, runs=runs, fold=a.fold, splits=splits,
+                               bin_schemes=schemes, every=a.every,
+                               subsample=a.subsample, seed=a.seed)
 
 
 def _cmd_aggregate(cfg, _a):
@@ -101,9 +128,11 @@ def main():
     p.add_argument("--fold", type=int, default=0)
     p.set_defaults(func=_cmd_linear_probe)
 
-    p = sub.add_parser("d1", help="sky-mask inference, 4 ckpts x fold 0 (GPU)")
+    p = sub.add_parser("d1", help="sky-mask inference, 4 ckpts x fold (GPU)")
     p.add_argument("--fold",  type=int,  default=0)
     p.add_argument("--out",   type=Path, default=None, help="override config['d1_results_path']")
+    p.add_argument("--runs",  nargs="+", default=None,
+                   help="run names (default: 4 resnet50 configs in d1.DEFAULT_RUNS)")
     p.add_argument("--batch-size",  type=int, default=32)
     p.add_argument("--num-workers", type=int, default=2)
     p.set_defaults(func=_cmd_d1)
@@ -111,6 +140,8 @@ def main():
     p = sub.add_parser("embeddings", help="extract penultimate features (val + test, fold 0)")
     p.add_argument("--out-dir", type=Path, default=None, help="override config['embeddings_dir']")
     p.add_argument("--fold",    type=int,  default=0)
+    p.add_argument("--runs",    nargs="+", default=None,
+                   help="run names (default: 4 resnet50 configs in embeddings.DEFAULT_RUNS)")
     p.add_argument("--batch-size",  type=int, default=32)
     p.add_argument("--num-workers", type=int, default=2)
     p.set_defaults(func=_cmd_embeddings)
@@ -132,6 +163,43 @@ def main():
     p.add_argument("--batch-size",  type=int, default=32)
     p.add_argument("--num-workers", type=int, default=2)
     p.set_defaults(func=_cmd_trajectory)
+
+    p = sub.add_parser("sample_traj",
+                       help="per-sample trajectory plot (needs snapshot_every>0 runs + trajectory npz)")
+    p.add_argument("--fold",        type=int,  default=0)
+    p.add_argument("--seed",        type=int,  default=0)
+    p.add_argument("--runs",        nargs="+", default=None,
+                   help="run names (default: 4 resnet50 configs)")
+    p.add_argument("--splits",      nargs="+", default=None,
+                   help="default: val test")
+    p.add_argument("--bin-schemes", nargs="+", default=None, choices=["freq", "temp"],
+                   help="default: both freq and temp")
+    p.set_defaults(func=_cmd_sample_traj)
+
+    p = sub.add_parser("closest_train",
+                       help="median-residual test image vs feature-NN and geo-NN train neighbours")
+    p.add_argument("--fold", type=int,  default=0)
+    p.add_argument("--seed", type=int,  default=0)
+    p.add_argument("--runs", nargs="+", default=None,
+                   help="run names (default: 4 resnet50 configs)")
+    p.set_defaults(func=_cmd_closest_train)
+
+    p = sub.add_parser("bin_traj",
+                       help="bin-colored distribution filmstrip across snapshot epochs")
+    p.add_argument("--fold",          type=int,  default=0)
+    p.add_argument("--seed",          type=int,  default=0)
+    p.add_argument("--every",         type=int,  default=5,
+                   help="keep epochs where ep %% every == 0 (plus first and last). default 5")
+    p.add_argument("--subsample",     type=int,  default=None,
+                   help="optional: random subsample per panel; same indices across panels. "
+                        "default: plot all points")
+    p.add_argument("--runs",          nargs="+", default=None,
+                   help="run names (default: 4 resnet50 configs)")
+    p.add_argument("--splits",        nargs="+", default=None,
+                   help="default: val test")
+    p.add_argument("--bin-schemes",   nargs="+", default=None, choices=["freq", "temp"],
+                   help="default: both freq and temp")
+    p.set_defaults(func=_cmd_bin_traj)
 
     sub.add_parser("aggregate", help="build aggregate.csv from all result JSONs").set_defaults(func=_cmd_aggregate)
     sub.add_parser("figures",   help="render all nature-style figures").set_defaults(func=_cmd_figures)

@@ -1,10 +1,11 @@
-"""Extract ResNet-50 penultimate features (2048-d) for trained checkpoints.
+"""Extract penultimate features for trained checkpoints (ResNet-50 or ViT-B/16).
 
 Two forward passes per checkpoint by default: one over the fold-0 val set
 (within-distribution: same cameras as train, held-out frames) and one over the
-test set (LOCO: held-out cameras). Features come from the output of
-`model.avgpool` (post-flatten, pre-`fc`) -- captured via forward hook so the
-same code handles both vanilla ResNet and FDS-wrapped variants.
+test set (LOCO: held-out cameras). Features are the INPUT to the regression
+head -- captured via a forward pre-hook on whichever module is the head
+(`model.fc` for vanilla ResNet, `model.heads.head` for vanilla ViT, or
+`model.head` for FDS-wrapped variants). Output dim is 2048 (ResNet) or 768 (ViT).
 
 For each (run, split) we save a `.npz` with:
   features  (N, 2048) float32
@@ -59,17 +60,24 @@ class _EmbedDataset(Dataset):
         return self.transform(img), float(row["TempM"]), str(row["CamId"])
 
 
-def _find_penultimate_module(model: torch.nn.Module) -> torch.nn.Module:
-    """Return the module whose output is the penultimate feature.
+def _find_head_module(model: torch.nn.Module) -> torch.nn.Module:
+    """Return the final Linear head; its INPUT is the penultimate feature.
 
-    Vanilla ResNet-50: `model.avgpool` (output (B, 2048, 1, 1) -- flatten in the hook).
-    FDSModel:          `model.backbone.avgpool` -- FDS sits between this and the head.
+    Handles four cases:
+      - FDSModel (ResNet or ViT): `model.head` holds the split-off Linear.
+      - vanilla ResNet-50:        `model.fc`.
+      - vanilla ViT-B/16:         `model.heads.head`.
+
+    In eval mode, FDSModel's smoothing is disabled, so the head input == raw
+    backbone features (flattened) for all four cases.
     """
-    if hasattr(model, "avgpool"):
-        return model.avgpool
-    if hasattr(model, "backbone") and hasattr(model.backbone, "avgpool"):
-        return model.backbone.avgpool
-    raise ValueError(f"don't know how to find penultimate module in {type(model).__name__}")
+    if hasattr(model, "head") and isinstance(model.head, torch.nn.Linear):
+        return model.head
+    if hasattr(model, "fc") and isinstance(model.fc, torch.nn.Linear):
+        return model.fc
+    if hasattr(model, "heads") and hasattr(model.heads, "head"):
+        return model.heads.head
+    raise ValueError(f"don't know where the head is in {type(model).__name__}")
 
 
 def extract_one(config: dict, run_name: str, fold: int, out_dir: Path | str,
@@ -104,11 +112,14 @@ def extract_one(config: dict, run_name: str, fold: int, out_dir: Path | str,
     device = get_device()
     model.to(device).eval()
 
-    target = _find_penultimate_module(model)
+    target = _find_head_module(model)
     bag: list[torch.Tensor] = []
-    def hook(_module, _inp, out):
-        bag.append(out.detach().flatten(1).cpu())
-    handle = target.register_forward_hook(hook)
+    def pre_hook(_module, inputs):
+        feat = inputs[0]
+        if feat.ndim > 2:
+            feat = feat.flatten(1)
+        bag.append(feat.detach().cpu())
+    handle = target.register_forward_pre_hook(pre_hook)
 
     df = pd.read_csv(labels_path)
     fold_info = json.loads(splits_path.read_text())[fold]

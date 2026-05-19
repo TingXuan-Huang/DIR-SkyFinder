@@ -229,31 +229,55 @@ def fig_dist_and_errbar(config: dict, fold: int = 0) -> None:
             continue
         y_true, y_pred = arrs
         train_y = _train_y(config, fold)
+
+        # Val preds come from the per-run JSON (best-checkpoint val_preds/val_ys).
+        run_json = _load_run_json(config, name, fold)
+        val_y    = np.asarray((run_json or {}).get("val_ys", []),    dtype=np.float32)
+        val_pred = np.asarray((run_json or {}).get("val_preds", []), dtype=np.float32)
+        has_val  = val_y.size > 0 and val_pred.size == val_y.size
+
         bin_w = 1.0
-        lo = float(min(train_y.min(), y_true.min(), y_pred.min()))
-        hi = float(max(train_y.max(), y_true.max(), y_pred.max()))
+        lo_vals = [train_y.min(), y_true.min(), y_pred.min()]
+        hi_vals = [train_y.max(), y_true.max(), y_pred.max()]
+        if has_val:
+            lo_vals += [val_y.min(), val_pred.min()]
+            hi_vals += [val_y.max(), val_pred.max()]
+        lo = float(min(lo_vals)); hi = float(max(hi_vals))
         edges = np.arange(np.floor(lo / bin_w) * bin_w, np.ceil(hi / bin_w) * bin_w + bin_w, bin_w)
         centers = (edges[:-1] + edges[1:]) / 2
 
-        idx = np.clip(np.digitize(y_true, edges) - 1, 0, len(edges) - 2)
-        err = np.abs(y_true - y_pred)
-        per_bin_mae = np.array([err[idx == k].mean() if (idx == k).any() else np.nan
-                                for k in range(len(centers))])
+        def _per_bin(y_t, y_p):
+            i = np.clip(np.digitize(y_t, edges) - 1, 0, len(edges) - 2)
+            e = np.abs(y_t - y_p)
+            return np.array([e[i == k].mean() if (i == k).any() else np.nan
+                             for k in range(len(centers))])
+        test_mae = _per_bin(y_true, y_pred)
+        val_mae  = _per_bin(val_y, val_pred) if has_val else None
 
         fig, (ax_top, ax_bot) = plt.subplots(
             2, 1, figsize=figsize("single", 0.95),
             gridspec_kw={"height_ratios": [1, 1], "hspace": 0.08}, sharex=True,
         )
         ax_top.hist(train_y, bins=edges, color="#888888", alpha=0.5, label="train true")
+        if has_val:
+            ax_top.hist(val_pred, bins=edges, color="#666666",
+                        alpha=0.85, label="val pred", histtype="step", linewidth=1.0, linestyle="--")
         ax_top.hist(y_pred,  bins=edges, color=PALETTE[kind],
-                    alpha=0.65, label="test pred", histtype="step", linewidth=1.0)
+                    alpha=0.85, label="test pred", histtype="step", linewidth=1.0)
         ax_top.set_ylabel("count")
         ax_top.legend(loc="upper right", frameon=False)
         ax_top.set_title(KIND_LABEL[kind])
 
-        ax_bot.bar(centers, per_bin_mae, width=bin_w * 0.9,
-                   color=PALETTE[kind], edgecolor="none")
-        ax_bot.set_ylabel("test MAE (°C)")
+        # Test MAE as filled bars (current behavior); val MAE overlaid as a
+        # line+markers so paired comparison is readable across ~80 bins.
+        ax_bot.bar(centers, test_mae, width=bin_w * 0.9,
+                   color=PALETTE[kind], edgecolor="none", alpha=0.7, label="test MAE")
+        if val_mae is not None:
+            ax_bot.plot(centers, val_mae, color="black", linewidth=0.7,
+                        marker="o", markersize=2.5, markerfacecolor="white",
+                        markeredgewidth=0.5, label="val MAE")
+            ax_bot.legend(loc="upper right", frameon=False)
+        ax_bot.set_ylabel("MAE (°C)")
         ax_bot.set_xlabel("TempM bin (°C)")
         save_fig(fig, f"fig_dist_and_errbar_{kind}_fold{fold}", fig_dir)
 

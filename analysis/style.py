@@ -31,8 +31,9 @@ PALETTE = {
 }
 MARKERS = {"baseline": "o", "lds": "s", "fds": "^", "lds_fds": "D"}
 
-# For reference baselines drawn as horizontal lines.
-REF_COLORS = {"c1": "#999999", "c2": "#666666", "d1": "#333333"}
+# For reference baselines drawn as horizontal lines. Picked from tab10 indices
+# that don't collide with PALETTE (blue/orange/green/red): purple, cyan, olive.
+REF_COLORS = {"c1": "#9467BD", "c2": "#17BECF", "d1": "#BCBD22"}
 
 
 def figsize(width: str = "single", height_ratio: float = 0.62) -> tuple[float, float]:

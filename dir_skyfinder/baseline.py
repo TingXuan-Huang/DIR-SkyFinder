@@ -175,22 +175,26 @@ def get_device() -> str:
     return "cpu"
 
 
-def make_model(name: str, freeze_backbone: bool = False) -> nn.Module:
+def make_model(name: str, freeze_backbone: bool = False,
+               pretrained: bool = True) -> nn.Module:
     """Build a fresh model with our 1-output regression head.
 
     `freeze_backbone` (D4 linear probe): freezes all pretrained params, then
     swaps in a new head. The new `nn.Linear` is constructed AFTER the freeze,
     so it stays trainable by default — no name-matching needed downstream.
+
+    `pretrained=False` skips the ImageNet weight download; use when the caller
+    is about to overwrite all weights via `load_state_dict` (e.g. inference).
     """
     if name == "resnet50":
-        m = resnet50(weights=ResNet50_Weights.IMAGENET1K_V2)
+        m = resnet50(weights=ResNet50_Weights.IMAGENET1K_V2 if pretrained else None)
         if freeze_backbone:
             for p in m.parameters():
                 p.requires_grad_(False)
         m.fc = nn.Linear(m.fc.in_features, 1)
         return m
     if name == "vit_b_16":
-        m = vit_b_16(weights=ViT_B_16_Weights.IMAGENET1K_V1)
+        m = vit_b_16(weights=ViT_B_16_Weights.IMAGENET1K_V1 if pretrained else None)
         if freeze_backbone:
             for p in m.parameters():
                 p.requires_grad_(False)
