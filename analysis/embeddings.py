@@ -28,7 +28,7 @@ import torch
 from PIL import Image
 from torch.utils.data import DataLoader, Dataset
 
-from dir_skyfinder.baseline import EVAL_TF, get_device
+from dir_skyfinder.baseline import EVAL_TF, _resolve_load_path, get_device
 
 # Re-use the FDS-aware model reconstruction we already have for D1.
 from analysis.d1 import _build_model_from_results
@@ -59,16 +59,25 @@ class _EmbedDataset(Dataset):
         return self.transform(img), float(row["TempM"]), str(row["CamId"])
 
 
-def _find_penultimate_module(model: torch.nn.Module) -> torch.nn.Module:
-    """Return the module whose output is the penultimate feature.
+def _find_penultimate_module(model: torch.nn.Module) -> tuple[torch.nn.Module, str]:
+    """Return (module, hook_kind) where hook_kind is 'post' (capture output) or
+    'pre' (capture input).
 
-    Vanilla ResNet-50: `model.avgpool` (output (B, 2048, 1, 1) -- flatten in the hook).
-    FDSModel:          `model.backbone.avgpool` -- FDS sits between this and the head.
+    Supported model shapes:
+      FDSModel(any arch)    -> hook backbone OUTPUT (FDSModel routes its input through
+                               backbone(x) which already strips the head).
+      Vanilla ResNet-50     -> hook avgpool OUTPUT (B, 2048, 1, 1); flatten in the hook.
+      Vanilla ViT-B/16      -> hook heads INPUT (768-d CLS token before the final
+                               Linear). torchvision's ViT has no avgpool; the
+                               penultimate feature is the input to `model.heads`,
+                               so we use `register_forward_pre_hook`.
     """
+    if hasattr(model, "backbone"):
+        return model.backbone, "post"
     if hasattr(model, "avgpool"):
-        return model.avgpool
-    if hasattr(model, "backbone") and hasattr(model.backbone, "avgpool"):
-        return model.backbone.avgpool
+        return model.avgpool, "post"
+    if hasattr(model, "heads"):
+        return model.heads, "pre"
     raise ValueError(f"don't know how to find penultimate module in {type(model).__name__}")
 
 
@@ -95,20 +104,26 @@ def extract_one(config: dict, run_name: str, fold: int, out_dir: Path | str,
     splits_path = Path(config["splits_path"])
     img_dir     = Path(config["img_dir"])
 
-    results_path = results_dir / f"{run_name}_fold{fold}.json"
-    if not results_path.exists():
-        print(f"[skip] no results json at {results_path}")
+    results_path = _resolve_load_path(f"{run_name}_fold{fold}", ".json", results_dir)
+    if results_path is None:
+        print(f"[skip] no results json for {run_name}_fold{fold} under {results_dir}")
         return None
 
     model, _cfg = _build_model_from_results(config, results_path, ckpt_override=ckpt_override)
     device = get_device()
     model.to(device).eval()
 
-    target = _find_penultimate_module(model)
+    target, hook_kind = _find_penultimate_module(model)
     bag: list[torch.Tensor] = []
-    def hook(_module, _inp, out):
-        bag.append(out.detach().flatten(1).cpu())
-    handle = target.register_forward_hook(hook)
+    if hook_kind == "post":
+        # Capture OUTPUT of `target` (e.g. avgpool, FDS backbone).
+        def hook(_module, _inp, out):
+            bag.append(out.detach().flatten(1).cpu())
+        handle = target.register_forward_hook(hook)
+    else:  # "pre" — capture INPUT to `target` (e.g. ViT.heads input = CLS token)
+        def hook(_module, args):
+            bag.append(args[0].detach().flatten(1).cpu())
+        handle = target.register_forward_pre_hook(hook)
 
     df = pd.read_csv(labels_path)
     fold_info = json.loads(splits_path.read_text())[fold]

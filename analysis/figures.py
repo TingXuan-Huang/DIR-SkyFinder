@@ -58,8 +58,9 @@ def _empty(df: pd.DataFrame, name: str) -> bool:
 
 
 def _load_run_json(config: dict, name: str, fold: int = 0) -> dict | None:
-    p = Path(config["results_dir"]) / f"{name}_fold{fold}.json"
-    if not p.exists():
+    from dir_skyfinder.baseline import _resolve_load_path
+    p = _resolve_load_path(f"{name}_fold{fold}", ".json", Path(config["results_dir"]))
+    if p is None:
         return None
     return json.loads(p.read_text())
 
@@ -114,10 +115,17 @@ def _ref_lines(config: dict, c1_kind: str = "per_cam_month_mean") -> dict[str, f
 # 1. Main sweep -- per-bin MAE bars over 4 configs, errors over folds
 # ============================================================
 
-def fig_main_sweep(config: dict, df: pd.DataFrame) -> None:
+def fig_main_sweep(config: dict, df: pd.DataFrame, metric: str = "test") -> None:
+    """Per-bin MAE bars over 4 configs.
+
+    `metric` is the column-name prefix in `df` to use: "test" (default) reads
+    `test_overall / test_many / test_medium / test_few` (populated by
+    `inference.py`), "val" reads `val_*` (populated by every training run).
+    Output filename includes the metric suffix.
+    """
     fig_dir = Path(config["figures_dir"])
     sub = _resnet(df[df["group"] == "main"])
-    if _empty(sub, "fig_main_sweep"):
+    if _empty(sub, f"fig_main_sweep_{metric}"):
         return
     fig, ax = plt.subplots(figsize=figsize("double", 0.45))
     width = 0.18
@@ -126,8 +134,8 @@ def fig_main_sweep(config: dict, df: pd.DataFrame) -> None:
         rows = sub[sub["config_kind"] == kind]
         if rows.empty:
             continue
-        means = [rows[f"test_{b}"].mean()  for b in BIN_ORDER]
-        stds  = [rows[f"test_{b}"].std(ddof=0) for b in BIN_ORDER]
+        means = [rows[f"{metric}_{b}"].mean()  for b in BIN_ORDER]
+        stds  = [rows[f"{metric}_{b}"].std(ddof=0) for b in BIN_ORDER]
         ax.bar(x + (i - 1.5) * width, means, width, yerr=stds, capsize=2,
                color=PALETTE[kind], label=KIND_LABEL[kind], edgecolor="none")
     refs = _ref_lines(config)
@@ -135,10 +143,10 @@ def fig_main_sweep(config: dict, df: pd.DataFrame) -> None:
         ax.axhline(val, color=REF_COLORS[list(REF_COLORS)[j % 3]],
                    linestyle="--", linewidth=0.5, label=tag, zorder=0)
     ax.set_xticks(x); ax.set_xticklabels(BIN_ORDER)
-    ax.set_ylabel("test MAE (°C)")
+    ax.set_ylabel(f"{metric} MAE (°C)")
     ax.set_xlabel("bin (DIR many/medium/few)")
     ax.legend(loc="upper left", frameon=False, ncol=2)
-    save_fig(fig, "fig_main_sweep", fig_dir)
+    save_fig(fig, f"fig_main_sweep_{metric}", fig_dir)
 
 
 # ============================================================
@@ -601,7 +609,9 @@ def _load_traj_npz(config: dict, run_name: str, fold: int, ep: int, split: str) 
     return dict(np.load(p, allow_pickle=True))
 
 
-def fig_traj_pca(config: dict, run_name: str, fold: int = 0, split: str = "val") -> None:
+def fig_traj_pca(config: dict, run_name: str, fold: int = 0, split: str = "val",
+                 color_by: str = "temp") -> None:
+    """PCA grid across snapshot epochs. `color_by` ∈ {'temp', 'cam'}."""
     from sklearn.decomposition import PCA
     fig_dir = Path(config["figures_dir"])
     eps = _list_traj_epochs(config, run_name, fold, split)
@@ -619,16 +629,73 @@ def fig_traj_pca(config: dict, run_name: str, fold: int = 0, split: str = "val")
         if data is None:
             ax.set_axis_off(); continue
         xy = PCA(n_components=2, random_state=0).fit_transform(data["features"])
-        sc = ax.scatter(xy[:, 0], xy[:, 1], c=data["ys"], cmap="viridis",
+        if color_by == "temp":
+            cvals, cmap = data["ys"], "viridis"
+        else:                                   # color_by == "cam"
+            cvals, cmap = pd.Categorical(data["cam_ids"]).codes, "tab20"
+        sc = ax.scatter(xy[:, 0], xy[:, 1], c=cvals, cmap=cmap,
                         s=1, alpha=0.5, edgecolor="none")
         ax.set_title(f"ep {ep}")
         ax.set_xticks([]); ax.set_yticks([])
     for ax in axs_flat[n:]:
         ax.set_axis_off()
     if sc is not None:
-        fig.colorbar(sc, ax=axs_flat.tolist(), shrink=0.6, label="true TempM (°C)")
-    fig.suptitle(f"{run_name} fold{fold} {split} — PCA trajectory", fontsize=8, y=0.99)
-    save_fig(fig, f"fig_traj_pca_{run_name}_fold{fold}_{split}", fig_dir)
+        cbar_label = "true TempM (°C)" if color_by == "temp" else "camera id"
+        fig.colorbar(sc, ax=axs_flat.tolist(), shrink=0.6, label=cbar_label)
+    fig.suptitle(f"{run_name} fold{fold} {split} — PCA trajectory ({color_by})", fontsize=8, y=0.99)
+    save_fig(fig, f"fig_traj_pca_{run_name}_fold{fold}_{split}_{color_by}", fig_dir)
+
+
+def fig_traj_per_bin(config: dict, run_name: str, fold: int = 0, split: str = "val",
+                     bin_w: float = 2.0) -> None:
+    """Per-bin mean-feature cosine-similarity heatmap, one panel per snapshot epoch.
+
+    Shows how the model's bin-by-bin feature organization evolves through training.
+    Y-axis bins on shared edges across epochs so the matrices are directly comparable.
+    """
+    fig_dir = Path(config["figures_dir"])
+    eps = _list_traj_epochs(config, run_name, fold, split)
+    if not eps:
+        print(f"[skip] fig_traj_per_bin: no snapshots for {run_name}/{split}")
+        return
+
+    # Pull all snapshots' (features, ys) and build common bin edges.
+    snaps = []
+    for ep in eps:
+        d = _load_traj_npz(config, run_name, fold, ep, split)
+        if d is not None:
+            snaps.append((ep, d))
+    if not snaps:
+        print(f"[skip] fig_traj_per_bin: no readable npz files"); return
+    all_ys = np.concatenate([d["ys"] for _, d in snaps])
+    lo, hi = float(all_ys.min()), float(all_ys.max())
+    edges = np.arange(np.floor(lo / bin_w) * bin_w, np.ceil(hi / bin_w) * bin_w + bin_w, bin_w)
+
+    n = len(snaps)
+    ncols = min(n, 4)
+    nrows = (n + ncols - 1) // ncols
+    fig, axs = plt.subplots(nrows, ncols, figsize=figsize("double", 0.30 * max(nrows, 1)),
+                            sharex=True, sharey=True)
+    axs_flat = np.atleast_1d(axs).ravel()
+    im = None
+    for ax, (ep, d) in zip(axs_flat, snaps):
+        idx = np.clip(np.digitize(d["ys"], edges) - 1, 0, len(edges) - 2)
+        mean_feat = np.stack([
+            d["features"][idx == k].mean(axis=0) if (idx == k).any()
+            else np.zeros(d["features"].shape[1])
+            for k in range(len(edges) - 1)
+        ])
+        norm = np.linalg.norm(mean_feat, axis=1, keepdims=True) + 1e-9
+        sim = (mean_feat / norm) @ (mean_feat / norm).T
+        im = ax.imshow(sim, origin="lower", cmap="viridis", vmin=-1, vmax=1,
+                       extent=[edges[0], edges[-1], edges[0], edges[-1]])
+        ax.set_title(f"ep {ep}")
+    for ax in axs_flat[n:]:
+        ax.set_axis_off()
+    if im is not None:
+        fig.colorbar(im, ax=axs_flat.tolist(), shrink=0.6, label="cosine sim")
+    fig.suptitle(f"{run_name} fold{fold} {split} — per-bin cosine trajectory", fontsize=8, y=0.99)
+    save_fig(fig, f"fig_traj_per_bin_{run_name}_fold{fold}_{split}", fig_dir)
 
 
 def fig_traj_knn_mae(config: dict, run_name: str, fold: int = 0,
@@ -692,11 +759,21 @@ def fig_traj_cka(config: dict, run_name: str, fold: int = 0, split: str = "val")
 
 
 def make_trajectory(config: dict, runs: tuple[str, ...] | None = None, fold: int = 0) -> None:
+    """Render all 5 trajectory figure types for each run that has snapshots:
+
+      - fig_traj_pca_<run>_fold0_<split>_temp.{pdf,png}      PCA grid colored by true temp
+      - fig_traj_pca_<run>_fold0_<split>_cam.{pdf,png}       PCA grid colored by camera
+      - fig_traj_per_bin_<run>_fold0_<split>.{pdf,png}       per-bin cosine sim, per epoch
+      - fig_traj_cka_<run>_fold0_<split>.{pdf,png}           11x11 CKA heatmap across epochs
+      - fig_traj_knn_<run>_fold0.{pdf,png}                   k-NN MAE vs epoch (train+val+test)
+    """
     from analysis.trajectory import DEFAULT_RUNS
     runs = runs if runs is not None else DEFAULT_RUNS
     for r in runs:
         for s in ("val", "test"):
-            fig_traj_pca(config, r, fold=fold, split=s)
+            fig_traj_pca(config, r, fold=fold, split=s, color_by="temp")
+            fig_traj_pca(config, r, fold=fold, split=s, color_by="cam")
+            fig_traj_per_bin(config, r, fold=fold, split=s)
             fig_traj_cka(config, r, fold=fold, split=s)
         fig_traj_knn_mae(config, r, fold=fold)
 
@@ -706,7 +783,8 @@ def make_trajectory(config: dict, runs: tuple[str, ...] | None = None, fold: int
 # ============================================================
 
 def make_all(config: dict, df: pd.DataFrame) -> None:
-    fig_main_sweep(config, df)
+    fig_main_sweep(config, df, metric="test")     # populates only after inference.py
+    fig_main_sweep(config, df, metric="val")      # populates from every training run's JSON
     fig_training_curves(config)
     fig_pred_vs_true_scatter(config)
     fig_dist_and_errbar(config)

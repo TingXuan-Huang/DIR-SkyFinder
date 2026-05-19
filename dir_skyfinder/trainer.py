@@ -19,7 +19,8 @@ from datetime import datetime
 import numpy as np
 import torch
 
-from dir_skyfinder.baseline import (Config, FDSModel, RESULTS_DIR, build_loaders,
+from dir_skyfinder.baseline import (Config, FDSModel, RESULTS_DIR,
+                                    _subdir_for, build_loaders,
                                     evaluate, get_device, load_full_checkpoint,
                                     make_model, per_bin_mae, save_checkpoint,
                                     save_full_checkpoint, save_results,
@@ -107,6 +108,10 @@ def run_baseline(cfg: Config | None = None, save: bool = True, **kwargs) -> dict
     best_state = best_preds = best_ys = None
     best_epoch = -1
     start_epoch = 0
+    # Initialize so the post-loop tail doesn't NameError when the loop body
+    # doesn't run (e.g. resume of an already-completed run).
+    val_preds: np.ndarray | None = None
+    val_ys: np.ndarray | None = None
 
     # --- Resume from <run_name>_last.pt if it exists (Hyak preempt-safe) ---
     resume = load_full_checkpoint(cfg.run_name) if save else None
@@ -216,7 +221,7 @@ def run_baseline(cfg: Config | None = None, save: bool = True, **kwargs) -> dict
     }
     if save:
         save_results(results)
-        last = RESULTS_DIR / f"{cfg.run_name}_last.pt"
+        last = RESULTS_DIR / _subdir_for(cfg.run_name) / f"{cfg.run_name}_last.pt"
         if last.exists():
             last.unlink()
     return results

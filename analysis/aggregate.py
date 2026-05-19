@@ -212,14 +212,26 @@ def _parse_per_fold(path: Path, source: str, name_prefix: str) -> list[dict]:
     return rows
 
 
-def _parse_one(path: Path) -> list[dict]:
-    source = path.parent.name
+SKIP_JSON_STEMS = {"test_inference", "aggregate"}   # not training runs; parsed elsewhere
+SKIP_JSON_PREFIXES = ("dist_",)                     # outputs of dist.py / future analyses
+
+
+def _parse_one(path: Path, source_root: str) -> list[dict]:
+    """`source_root` is the top-level result-dir name (e.g. 'results'); stays
+    stable even for files under per-experiment subfolders."""
     name = path.stem
+    if name in SKIP_JSON_STEMS:
+        return []
+    if any(name.startswith(p) for p in SKIP_JSON_PREFIXES):
+        return []
     if name.startswith(("c1_", "c2_", "d1_")):
-        return _parse_per_fold(path, source, name)
-    if "per_fold" in path.read_text()[:200]:   # cheap sniff
-        return _parse_per_fold(path, source, name)
-    return _parse_standard(path, source)
+        return _parse_per_fold(path, source_root, name)
+    # Cheap sniff for per_fold-shaped JSONs without prefix match.
+    with path.open() as f:
+        head = f.read(200)
+    if "per_fold" in head:
+        return _parse_per_fold(path, source_root, name)
+    return _parse_standard(path, source_root)
 
 
 # ============================================================
@@ -251,9 +263,11 @@ def build_dataframe(config: dict) -> pd.DataFrame:
     for d in dirs:
         if not d.exists():
             continue
-        for path in sorted(d.glob("*.json")):
+        # rglob to handle both flat (<root>/*.json) and nested
+        # (<root>/<experiment_subdir>/*.json) layouts.
+        for path in sorted(d.rglob("*.json")):
             try:
-                rows.extend(_parse_one(path))
+                rows.extend(_parse_one(path, source_root=d.name))
             except Exception as e:
                 print(f"[skip] {path}: {e}")
 

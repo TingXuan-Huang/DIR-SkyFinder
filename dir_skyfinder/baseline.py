@@ -301,9 +301,37 @@ def per_bin_mae(y_true, y_pred, train_y, bin_w=2.0):
     return out
 
 
+def _subdir_for(run_name: str) -> str:
+    """Map a run_name to its per-experiment subfolder under results_dir.
+
+      'baseline_resnet50_fold0'        -> 'baseline_resnet50'
+      'baseline_resnet50_fold0_ep5'    -> 'baseline_resnet50'
+      'tune_lds_sigma_0.5_fold0'       -> 'tune_lds_sigma_0.5'
+      'smoke_hyak'                     -> 'smoke_hyak'      (no fold suffix -> flat name as-is)
+
+    The convention: every saved file related to one experiment family lives in
+    `<results_dir>/<subdir>/`. Helpers like d1/embeddings/trajectory/aggregate
+    handle BOTH flat (old) and nested (new) layouts via recursive glob.
+    """
+    return run_name.split("_fold")[0]
+
+
+def _resolve_load_path(run_name: str, suffix: str, results_dir: Path) -> Path | None:
+    """Return the existing path for `<run_name><suffix>`, looking in both the
+    nested per-experiment subfolder AND the flat root (for back-compat with
+    pre-refactor saves). Returns None if neither exists.
+    """
+    nested = results_dir / _subdir_for(run_name) / f"{run_name}{suffix}"
+    if nested.exists():
+        return nested
+    flat = results_dir / f"{run_name}{suffix}"
+    return flat if flat.exists() else None
+
+
 def save_results(results: dict, results_dir: Path | None = None) -> Path:
-    """Write results dict to <results_dir>/<run_name>.json. Returns the path."""
-    out_dir = results_dir if results_dir is not None else RESULTS_DIR
+    """Write results dict to <results_dir>/<subdir>/<run_name>.json."""
+    base = results_dir if results_dir is not None else RESULTS_DIR
+    out_dir = base / _subdir_for(results["run_name"])
     out_dir.mkdir(parents=True, exist_ok=True)
     path = out_dir / f"{results['run_name']}.json"
     path.write_text(json.dumps(results, indent=2))
@@ -316,8 +344,9 @@ def load_results(path) -> dict:
 
 
 def save_checkpoint(state_dict, run_name: str, results_dir: Path | None = None) -> Path:
-    """Save a model state_dict to <results_dir>/<run_name>.pt."""
-    out_dir = results_dir if results_dir is not None else RESULTS_DIR
+    """Save a model state_dict to <results_dir>/<subdir>/<run_name>.pt."""
+    base = results_dir if results_dir is not None else RESULTS_DIR
+    out_dir = base / _subdir_for(run_name)
     out_dir.mkdir(parents=True, exist_ok=True)
     path = out_dir / f"{run_name}.pt"
     torch.save(state_dict, path)
@@ -326,7 +355,7 @@ def save_checkpoint(state_dict, run_name: str, results_dir: Path | None = None) 
 
 
 def load_checkpoint(run_name_or_path, results_dir: Path | None = None, map_location="cpu"):
-    """Load a saved state_dict. Pass a run_name (looks in results_dir) or a full path.
+    """Load a saved state_dict. Pass a run_name (looks in subdir AND flat root) or a full path.
 
     Example:
         sd = load_checkpoint("baseline_resnet50_fold0")
@@ -335,23 +364,24 @@ def load_checkpoint(run_name_or_path, results_dir: Path | None = None, map_locat
         net.to(get_device()).eval()
     """
     p = Path(run_name_or_path)
-    if not p.exists():
-        out_dir = results_dir if results_dir is not None else RESULTS_DIR
-        p = out_dir / (run_name_or_path if str(run_name_or_path).endswith(".pt")
-                       else f"{run_name_or_path}.pt")
-    return torch.load(p, map_location=map_location, weights_only=True)
+    if p.exists():
+        return torch.load(p, map_location=map_location, weights_only=True)
+    base = results_dir if results_dir is not None else RESULTS_DIR
+    name = str(run_name_or_path)
+    # Always look up with `.pt`; strip a trailing `.pt` from the stem if the
+    # caller already included it (otherwise the resolver searches for an
+    # extensionless file and silently misses).
+    stem = name[:-3] if name.endswith(".pt") else name
+    resolved = _resolve_load_path(stem, ".pt", base)
+    if resolved is None:
+        raise FileNotFoundError(f"no checkpoint for {run_name_or_path!r} under {base}")
+    return torch.load(resolved, map_location=map_location, weights_only=True)
 
 
 def save_full_checkpoint(state: dict, run_name: str, results_dir: Path | None = None) -> Path:
-    """Save full training state to <results_dir>/<run_name>_last.pt, atomically.
-
-    `state` is a dict produced by run_baseline that holds everything needed to
-    resume training: model state_dict, optimizer state, scheduler state, current
-    epoch, history, best-val state, and RNG state.
-
-    Atomic via .part-then-rename, so a preempted job won't leave a corrupt file.
-    """
-    out_dir = results_dir if results_dir is not None else RESULTS_DIR
+    """Save full training state to <results_dir>/<subdir>/<run_name>_last.pt, atomically."""
+    base = results_dir if results_dir is not None else RESULTS_DIR
+    out_dir = base / _subdir_for(run_name)
     out_dir.mkdir(parents=True, exist_ok=True)
     final = out_dir / f"{run_name}_last.pt"
     tmp = final.with_name(final.name + ".part")
@@ -361,13 +391,10 @@ def save_full_checkpoint(state: dict, run_name: str, results_dir: Path | None = 
 
 
 def load_full_checkpoint(run_name: str, results_dir: Path | None = None) -> dict | None:
-    """Load full training state from <results_dir>/<run_name>_last.pt, or return
-    None if no resume file exists. `weights_only=False` because the dict
-    contains pickled Python objects (optimizer / scheduler state).
-    """
-    out_dir = results_dir if results_dir is not None else RESULTS_DIR
-    path = out_dir / f"{run_name}_last.pt"
-    if not path.exists():
+    """Load full training state, looking in both subdir and flat root. Returns None if absent."""
+    base = results_dir if results_dir is not None else RESULTS_DIR
+    path = _resolve_load_path(run_name, "_last.pt", base)
+    if path is None:
         return None
     return torch.load(path, map_location="cpu", weights_only=False)
 

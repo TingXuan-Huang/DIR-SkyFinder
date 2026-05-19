@@ -59,13 +59,18 @@ DEFAULT_SKIP_PATTERNS = ("*_vit_*", "save_test", "smoke_*")
 
 def _list_run_jsons(result_dirs: list[Path], pattern: str | None,
                     exclude: str | None, include_vit: bool) -> list[Path]:
-    """Return all `<run>_fold<k>.json` files that have a matching `.pt` checkpoint."""
+    """Return all `<run>_fold<k>.json` files that have a matching `.pt` checkpoint.
+
+    Uses rglob so it finds files in both the flat layout (<root>/<run>.json) and
+    the per-experiment nested layout (<root>/<subdir>/<run>.json).
+    """
     paths: list[Path] = []
     for d in result_dirs:
         if not d.exists():
             continue
-        for p in sorted(d.glob("*_fold*.json")):
-            if (p.parent / f"{p.stem}.pt").exists() is False:
+        for p in sorted(d.rglob("*_fold*.json")):
+            # The .pt lives next to the .json in BOTH layouts.
+            if not (p.parent / f"{p.stem}.pt").exists():
                 continue
             if pattern and not fnmatch.fnmatch(p.stem, pattern):
                 continue

@@ -196,7 +196,8 @@ def split_count() -> int:
 
 
 def completed(run_name: str) -> bool:
-    return (baseline.RESULTS_DIR / f"{run_name}.json").exists()
+    """True iff a results JSON exists for this run, in either nested or flat layout."""
+    return (baseline._resolve_load_path(run_name, ".json", baseline.RESULTS_DIR) is not None)
 
 
 # ============================================================

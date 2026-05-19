@@ -14,6 +14,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+from dir_skyfinder.baseline import _resolve_load_path
 from analysis.embeddings import extract_one
 
 
@@ -29,10 +30,13 @@ _EP_RE = re.compile(r"_ep(\d+)\.pt$")
 
 
 def find_snapshot_epochs(config: dict, run_name: str, fold: int) -> list[int]:
-    """Discover all `<run>_fold{fold}_ep{N}.pt` under `config["results_dir"]`. Returns sorted N's."""
+    """Discover all `<run>_fold{fold}_ep{N}.pt` under `config["results_dir"]`. Returns sorted N's.
+
+    rglob to handle both flat and per-experiment-subfolder layouts.
+    """
     results_dir = Path(config["results_dir"])
     eps = []
-    for p in results_dir.glob(f"{run_name}_fold{fold}_ep*.pt"):
+    for p in results_dir.rglob(f"{run_name}_fold{fold}_ep*.pt"):
         m = _EP_RE.search(p.name)
         if m:
             eps.append(int(m.group(1)))
@@ -59,7 +63,9 @@ def run_trajectory(config: dict, out_dir: Path | str | None = None, fold: int = 
             continue
         print(f"[run] {run}  snapshots={eps}")
         for ep in eps:
-            ckpt_override = results_dir / f"{run}_fold{fold}_ep{ep}.pt"
+            ckpt_override = _resolve_load_path(f"{run}_fold{fold}_ep{ep}", ".pt", results_dir)
+            if ckpt_override is None:
+                print(f"  [skip] missing ckpt for ep={ep}"); continue
             for split in splits:
                 target = out_dir / f"{run}_fold{fold}_ep{ep}_{split}.npz"
                 if target.exists():

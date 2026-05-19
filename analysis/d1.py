@@ -25,8 +25,8 @@ import torch
 from PIL import Image
 from torch.utils.data import DataLoader, Dataset
 
-from dir_skyfinder.baseline import (EVAL_TF, FDSModel, get_device, make_model,
-                                    per_bin_mae)
+from dir_skyfinder.baseline import (EVAL_TF, FDSModel, _resolve_load_path,
+                                    get_device, make_model, per_bin_mae)
 from dir_skyfinder.fds import FDS
 
 
@@ -152,9 +152,10 @@ def _eval_one_config(config: dict, run_name: str, fold: int,
     img_dir     = Path(config["img_dir"])
     mask_dir    = Path(config["masks_dir"])
 
-    results_path = results_dir / f"{run_name}_fold{fold}.json"
-    if not results_path.exists():
-        return {"run_name": run_name, "skipped": f"no results json at {results_path}"}
+    results_path = _resolve_load_path(f"{run_name}_fold{fold}", ".json", results_dir)
+    if results_path is None:
+        return {"run_name": run_name,
+                "skipped": f"no results json for {run_name}_fold{fold} under {results_dir}"}
 
     model, cfg = _build_model_from_results(config, results_path)
     df = pd.read_csv(labels_path)
