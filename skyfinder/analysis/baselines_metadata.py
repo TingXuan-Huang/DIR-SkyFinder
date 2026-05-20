@@ -3,7 +3,7 @@
 Trains a `HistGradientBoostingRegressor` per fold on (CamId, Hour, Month, Latitude,
 Longitude) -- no image features at all. Reports val + test per-bin MAE.
 
-Output: `<c2_results_path>` (from config). Same per_fold schema as C1, so
+Output: `<baselines_metadata_path>` (from config). Same per_fold schema as the constant baselines, so
 `analysis/aggregate.py` ingests them with one code path.
 
 Implication if C2 beats the CNN: vision isn't adding much; the CNN is mostly
@@ -20,18 +20,20 @@ import pandas as pd
 from skyfinder.training.engine import per_bin_mae
 
 
-def run_c2(config: dict, out_path: Path | str | None = None, seed: int = 0) -> dict:
+def run_baselines_metadata(config: dict, out_path: Path | str | None = None, seed: int = 0) -> dict:
     """Fit HistGradientBoostingRegressor per fold on metadata; save per-fold MAE.
 
     Reports MAE on:
       val  -- held-out images from train cameras (in-distribution; matches CNN's val)
       test -- LOCO held-out cameras (out-of-distribution; the honest comparison)
+
+    Historical note: this was the "C2" ablation in `docs/ablation_catalog.md`.
     """
     from sklearn.ensemble import HistGradientBoostingRegressor   # heavy: local import
 
     labels_path = Path(config["labels_path"])
     splits_path = Path(config["splits_path"])
-    out_path = Path(out_path) if out_path is not None else Path(config["c2_results_path"])
+    out_path = Path(out_path) if out_path is not None else Path(config["baselines_metadata_path"])
 
     df = pd.read_csv(labels_path)
     splits = json.loads(splits_path.read_text())

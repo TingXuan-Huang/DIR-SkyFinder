@@ -178,7 +178,8 @@ def _parse_standard(path: Path, source: str) -> list[dict]:
 
 
 def _parse_per_fold(path: Path, source: str, name_prefix: str) -> list[dict]:
-    """C1 / C2 / D1: outer dict has `per_fold` list; emit one row per fold entry."""
+    """baselines_constant / baselines_metadata / skymask (formerly C1 / C2 / D1):
+    outer dict has `per_fold` list; emit one row per fold entry."""
     d = json.loads(path.read_text())
     rows = []
     for r in d.get("per_fold", []):
@@ -224,7 +225,11 @@ def _parse_one(path: Path, source_root: str) -> list[dict]:
         return []
     if any(name.startswith(p) for p in SKIP_JSON_PREFIXES):
         return []
-    if name.startswith(("c1_", "c2_", "d1_")):
+    # Fast-path: known per-fold JSON name prefixes (old "c1_"/"c2_"/"d1_" kept
+    # for back-compat with files generated before the May 2026 restructure).
+    PER_FOLD_PREFIXES = ("baselines_constant", "baselines_metadata", "skymask",
+                          "c1_", "c2_", "d1_")
+    if name.startswith(PER_FOLD_PREFIXES):
         return _parse_per_fold(path, source_root, name)
     # Cheap sniff for per_fold-shaped JSONs without prefix match.
     with path.open() as f:

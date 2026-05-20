@@ -95,13 +95,18 @@ def _train_y(config: dict, fold: int = 0) -> np.ndarray:
     return df.iloc[splits[fold]["train"]]["TempM"].to_numpy()
 
 
-def _ref_lines(config: dict, c1_kind: str = "per_cam_month_mean") -> dict[str, float]:
-    """Return {label: mean test MAE} for C1 (best predictor), C2, D1 (baseline raw)."""
+def _ref_lines(config: dict, constant_kind: str = "per_cam_month_mean") -> dict[str, float]:
+    """Return {label: mean test MAE} for the non-DL baselines (used as reference
+    lines on the headline figures).
+
+    Labels keep the "C1 / C2 / D1" prefixes because `docs/figure_report.md`
+    references them; the keys read from `config` follow the new naming.
+    """
     out: dict[str, float] = {}
     for tag, path_key, key in [
-        ("C1 (per-cam-month)", "c1_results_path", c1_kind),
-        ("C2 (metadata GBM)",  "c2_results_path", None),
-        ("D1 (sky mask)",      "d1_results_path", None),
+        ("C1 (per-cam-month)", "baselines_constant_path", constant_kind),
+        ("C2 (metadata GBM)",  "baselines_metadata_path", None),
+        ("D1 (sky mask)",      "skymask_path",            None),
     ]:
         path = Path(config[path_key])
         if not path.exists():

@@ -5,7 +5,7 @@ Three predictors, fit on each fold's train slice, evaluated on val + test:
   - per_cam_mean       : groupby CamId  -> mean(TempM); fall back to global
   - per_cam_month_mean : groupby (CamId, Month) -> mean(TempM); falls back per-cam, then global
 
-Output: `<c1_results_path>` (from config) with `per_fold` rows shaped like
+Output: `<baselines_constant_path>` (from config) with `per_fold` rows shaped like
 C2's, so `analysis/aggregate.py` ingests them with the same code path.
 
 All paths come from `config` (loaded from `analysis_config.yaml`); only the
@@ -52,15 +52,17 @@ def _fit_predict(train_df: pd.DataFrame, kind: str):
     return predict
 
 
-def run_c1(config: dict, out_path: Path | str | None = None) -> dict:
+def run_baselines_constant(config: dict, out_path: Path | str | None = None) -> dict:
     """Compute the 3 constant predictors per fold; write JSON.
 
-    `config` is the loaded `analysis_config.yaml`. `out_path` overrides
-    `config["c1_results_path"]` if given.
+    `config` is the loaded `configs/analysis.yaml`. `out_path` overrides
+    `config["baselines_constant_path"]` if given.
+
+    Historical note: this was the "C1" ablation in `docs/ablation_catalog.md`.
     """
     labels_path = Path(config["labels_path"])
     splits_path = Path(config["splits_path"])
-    out_path = Path(out_path) if out_path is not None else Path(config["c1_results_path"])
+    out_path = Path(out_path) if out_path is not None else Path(config["baselines_constant_path"])
 
     df = pd.read_csv(labels_path)
     splits = json.loads(splits_path.read_text())

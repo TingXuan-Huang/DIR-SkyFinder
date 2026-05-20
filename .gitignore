@@ -16,6 +16,12 @@ __pycache__/
 *.pyc
 .ipynb_checkpoints/
 
+# pip / setuptools build artifacts
+*.egg-info/
+build/
+dist/
+.eggs/
+
 # macOS
 .DS_Store
 

@@ -60,7 +60,7 @@ def fig_a2_reweight(config: dict, df) -> None:
 
 def fig_d1_skymask(config: dict) -> None:
     fig_dir = Path(config["figures_dir"])
-    p = Path(config["d1_results_path"])
+    p = Path(config["skymask_path"])
     if not p.exists():
         print("[skip] fig_d1_skymask: d1 results not found")
         return

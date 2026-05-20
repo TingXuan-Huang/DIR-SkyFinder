@@ -198,16 +198,20 @@ def _eval_one_config(config: dict, run_name: str, fold: int,
     }
 
 
-def run_d1(config: dict, out_path: Path | str | None = None, fold: int = 0,
-           runs: tuple[str, ...] = DEFAULT_RUNS,
-           batch_size: int = 32, num_workers: int = 2) -> dict:
-    out_path = Path(out_path) if out_path is not None else Path(config["d1_results_path"])
+def run_skymask_inference(config: dict, out_path: Path | str | None = None, fold: int = 0,
+                          runs: tuple[str, ...] = DEFAULT_RUNS,
+                          batch_size: int = 32, num_workers: int = 2) -> dict:
+    """Sky-mask inference for trained checkpoints. No retraining.
+
+    Historical note: this was the "D1" ablation in `docs/ablation_catalog.md`.
+    """
+    out_path = Path(out_path) if out_path is not None else Path(config["skymask_path"])
     device = get_device()
     print(f"[device] {device}")
 
     results = {"per_fold": [], "mask_dir": str(config["masks_dir"]), "fold": fold}
     for name in runs:
-        print(f"[d1] evaluating {name} fold={fold}")
+        print(f"[skymask] evaluating {name} fold={fold}")
         row = _eval_one_config(config, name, fold, batch_size, num_workers, device)
         results["per_fold"].append(row)
         if "skipped" in row:

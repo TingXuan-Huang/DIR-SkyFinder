@@ -118,7 +118,8 @@ def _cmd_inference(args: argparse.Namespace) -> int:
 # analyze
 # ============================================================
 
-_ANALYZE_KINDS = ("c1", "c2", "d1", "embeddings", "trajectory", "linear_probe",
+_ANALYZE_KINDS = ("baselines-constant", "baselines-metadata", "skymask",
+                  "embeddings", "trajectory", "linear-probe",
                   "aggregate", "figures", "all")
 
 
@@ -127,17 +128,17 @@ def _cmd_analyze(args: argparse.Namespace) -> int:
     cfg = load_config(args.config)
 
     kind = args.kind
-    if kind == "c1":
-        from skyfinder.analysis.baselines_constant import run_c1
-        run_c1(cfg, out_path=args.out)
-    elif kind == "c2":
-        from skyfinder.analysis.baselines_metadata import run_c2
-        run_c2(cfg, out_path=args.out, seed=args.seed)
-    elif kind == "d1":
-        from skyfinder.analysis.skymask_inference import run_d1
-        run_d1(cfg, out_path=args.out, fold=args.fold,
-               batch_size=args.batch_size, num_workers=args.num_workers)
-    elif kind == "linear_probe":
+    if kind == "baselines-constant":
+        from skyfinder.analysis.baselines_constant import run_baselines_constant
+        run_baselines_constant(cfg, out_path=args.out)
+    elif kind == "baselines-metadata":
+        from skyfinder.analysis.baselines_metadata import run_baselines_metadata
+        run_baselines_metadata(cfg, out_path=args.out, seed=args.seed)
+    elif kind == "skymask":
+        from skyfinder.analysis.skymask_inference import run_skymask_inference
+        run_skymask_inference(cfg, out_path=args.out, fold=args.fold,
+                              batch_size=args.batch_size, num_workers=args.num_workers)
+    elif kind == "linear-probe":
         from skyfinder.analysis.linear_probe import run_linear_probe_summary
         run_linear_probe_summary(cfg, out_path=args.out, fold=args.fold)
     elif kind == "embeddings":
@@ -166,10 +167,10 @@ def _cmd_analyze(args: argparse.Namespace) -> int:
         render_all(cfg, df)
     elif kind == "all":
         from skyfinder.analysis.aggregate import main as agg_main
-        from skyfinder.analysis.baselines_constant import run_c1
+        from skyfinder.analysis.baselines_constant import run_baselines_constant
         from skyfinder.analysis.aggregate import build_dataframe
         from skyfinder.analysis.figures import render_all
-        run_c1(cfg)
+        run_baselines_constant(cfg)
         agg_main(cfg)
         df = build_dataframe(cfg)
         render_all(cfg, df)
