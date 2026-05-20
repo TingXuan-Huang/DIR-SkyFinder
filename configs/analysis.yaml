@@ -1,0 +1,41 @@
+# Single source of truth for analysis-pipeline paths and reference constants.
+# Loaded by `skyfinder.analysis.config_loader.load_config()` and passed as
+# `config` into every analysis function. No module reads these constants
+# directly — keeps `skyfinder/analysis/` independent of training-side paths.
+#
+# Code-level things (EVAL_TF, build_model, FDSModel, FDS, per_bin_mae,
+# get_device) come from `skyfinder.training.*` modules — those are reusable
+# code, not configuration.
+
+# --- Data paths ---
+labels_path:  data/labels_with_images.csv
+splits_path:  data/splits/loco_5fold.json
+img_dir:      data/images
+masks_dir:    data/masks
+
+# --- Output directories ---
+results_dir:           results
+ablation_results_dir:  results/_analysis
+figures_dir:           figures
+embeddings_dir:        results/_analysis/embeddings
+trajectory_dir:        results/_analysis/embeddings/trajectory
+
+# --- Aggregated / shared output files ---
+test_inference_path:        results/test_inference.json
+aggregate_csv:              results/_analysis/aggregate.csv
+baselines_constant_path:    results/_analysis/baselines_constant.json
+baselines_metadata_path:    results/_analysis/baselines_metadata.json
+skymask_path:               results/_analysis/skymask.json
+
+# --- aggregate.py scopes ---
+aggregate_result_dirs:
+  - results
+ablation_yamls:
+  - configs/ablations.yaml
+  - configs/ablations_decomp.yaml
+
+# --- Temperature range (used by FDS bucket reconstruction in skymask_inference
+# and analysis.test_inference) ---
+min_temp:           -30.0
+max_temp:            55.0
+default_bin_width:    1.0

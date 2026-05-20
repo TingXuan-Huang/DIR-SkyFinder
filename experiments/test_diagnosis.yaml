@@ -1,0 +1,79 @@
+project_root: "."
+
+# Companion ablation suite for REPORT.md §11 (analyses #7 and #8).
+# Both are GPU-bound and not included in the default sweep.
+#
+# These tests answer two distinct questions about the val->test gap:
+#   #7  Does adding a per-camera prior close the gap?  (camera embedding)
+#   #8  Is the gap caused by camera shift?             (random split control)
+
+paths:
+  labels: "data/labels_with_images.csv"
+  # NOTE: #7 uses the standard LOCO splits; #8 uses a fresh random split.
+  splits: "data/splits/loco_5fold.json"
+  images: "data/images"
+  results: "ablations/results"
+
+save: true
+skip_existing: true
+
+experiments:
+  # =====================================================================
+  # #7 — Camera-conditioned head (upper bound)
+  # Goal: see whether a learnable per-camera prior closes the val→test gap.
+  # Requires the runner patch in dir_skyfinder/cam_conditioned.py (PATCH_RUNNER).
+  # Expected: val unchanged (~2.8°C); test should fall toward C2 (~6.4°C) or below.
+  # =====================================================================
+  - name: "diag7_cam_cond_baseline_r50"
+    model: "resnet50"
+    folds: [0, 1, 2, 3, 4]
+    epochs: 50
+    batch_size: 64
+    lr: 0.001
+    num_workers: 4
+    seed: 0
+    use_lds: false
+    use_fds: false
+    # ↓ flags introduced by dir_skyfinder.cam_conditioned
+    use_cam_embedding: true
+    cam_embedding_dim: 64
+    cam_dropout_prob: 0.05
+    run_name_template: "diag7_cam_cond_baseline_r50_fold{fold}"
+
+  - name: "diag7_cam_cond_lds_r50"
+    model: "resnet50"
+    folds: [0]
+    epochs: 50
+    batch_size: 64
+    lr: 0.001
+    num_workers: 4
+    seed: 0
+    use_lds: true
+    lds_reweight: "sqrt_inv"
+    use_cam_embedding: true
+    cam_embedding_dim: 64
+    cam_dropout_prob: 0.05
+    run_name_template: "diag7_cam_cond_lds_r50_fold{fold}"
+
+  # =====================================================================
+  # #8 — Random-split control (sanity)
+  # Goal: confirm that under a random row split (every camera in every set)
+  # val MAE ≈ test MAE ≈ 2.8°C. If true, the LOCO val→test gap is camera-shift.
+  # Before running: generate the split file:
+  #     python data/splits_random.py
+  # Then either:
+  #   (a) swap `paths.splits` above to data/splits/random_5fold.json, or
+  #   (b) point each experiment at the random split via splits_path override.
+  # =====================================================================
+  - name: "diag8_random_split_baseline_r50"
+    model: "resnet50"
+    folds: [0, 1, 2, 3, 4]
+    epochs: 50
+    batch_size: 64
+    lr: 0.001
+    num_workers: 4
+    seed: 0
+    splits_path: "data/splits/random_5fold.json"   # overrides paths.splits
+    use_lds: false
+    use_fds: false
+    run_name_template: "diag8_random_split_baseline_r50_fold{fold}"
