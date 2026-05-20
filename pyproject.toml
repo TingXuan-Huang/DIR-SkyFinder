@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "skyfinder"
+version = "0.2.0"
+description = "Deep Imbalanced Regression on the SkyFinder outdoor webcam dataset"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+dependencies = [
+    "torch>=2.0",
+    "torchvision>=0.15",
+    "numpy>=1.24",
+    "pandas>=2.0",
+    "matplotlib>=3.7",
+    "pyarrow>=12",
+    "pillow>=9.5",
+    "tqdm>=4.65",
+    "PyYAML>=6.0",
+    "scipy>=1.10",
+    "scikit-learn>=1.3",
+]
+
+[project.optional-dependencies]
+analysis = ["umap-learn>=0.5"]
+test = ["pytest>=7.4"]
+
+[project.scripts]
+skyfinder = "skyfinder.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["skyfinder*"]
+exclude = ["tests*", "experiments*", "scripts*", "docs*", "data*", "results*", "figures*", "ablations*"]

@@ -36,9 +36,10 @@ data/*.png
 !data/splits/
 !data/splits/*.json
 
-# Results / checkpoints / figures
-results/
-figures/
+# Results / checkpoints / figures (output dirs at repo root, NOT the
+# skyfinder/analysis/figures Python subpackage).
+/results/
+/figures/
 *.pt
 *.pth
 *.ckpt
@@ -46,3 +47,9 @@ figures/
 # Analysis generated outputs
 ablations/results/
 
+
+# Archive of pre-refactor outputs (kept locally only)
+data/old_outputs/
+
+# Claude Code worktrees
+.claude/

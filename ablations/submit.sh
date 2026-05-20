@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Submit an experiment family (or single experiment) as a SLURM array.
-# Computes the array size from the run.py registry, no hardcoding.
+# Computes the array size from the `skyfinder train` registry, no hardcoding.
 #
 # Usage:
 #     bash ablations/submit.sh <family> [--experiment NAME] [--concurrent N] [sbatch flags...]
@@ -21,8 +21,8 @@ usage() {
 usage: bash ablations/submit.sh <family> [--experiment NAME] [--concurrent N] [sbatch flags...]
 
 discovery:
-    python run.py --list                          # all families with run-counts
-    python run.py --list <family>                 # experiments inside one family
+    skyfinder train --list                          # all families with run-counts
+    skyfinder train --list <family>                 # experiments inside one family
 EOF
 }
 
@@ -52,11 +52,11 @@ if [[ -n "${EXPERIMENT}" ]]; then
     export FAMILY="${FAMILY}" EXPERIMENT="${EXPERIMENT}"
 else
     # Whole family: ask run.py how many experiments are in it.
-    N=$(python run.py --count "${FAMILY}")
+    N=$(skyfinder train --count "${FAMILY}")
     if [[ -z "${N}" || "${N}" -eq 0 ]]; then
         echo "no experiments in family '${FAMILY}'" >&2
         echo "available families:" >&2
-        python run.py --list >&2
+        skyfinder train --list >&2
         exit 1
     fi
     ARRAY="0-$((N - 1))%${CONCURRENT}"
