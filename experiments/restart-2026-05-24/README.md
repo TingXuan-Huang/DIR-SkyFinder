@@ -10,9 +10,9 @@ scope question): walk through each existing module Socratically; keep if well-de
 explainable from recall, rewrite if not. Code only via `/experiment-helper-code`, one
 function at a time.
 
-**Current phase:** 4 (analysis). Re-interpreting the archived Round-1 sweep (`data/old_outputs/
-server_results/`) at the corrected `bin_w=1.0`. Training-package refactor complete (11 modules,
-end-to-end smoke green). Phase 1 §6 unknowns drafted; U3 resolved.
+**Current phase:** 4 → 2-v2 (next-experiment design). Clean sweep running on Hyak (`skyfinder-dir`).
+`phase2-design-v2.md` written: experiment menu (NEED + CAN-ADD) + analysis-methods plan. Awaiting
+user decisions on framing (DIR-eval vs distribution-shift lead) + which CAN-ADD experiments to commit.
 
 **Iteration:** v1.
 
